@@ -1,0 +1,13 @@
+# Node / tooling (this project has zero deps, but keep these out just in case)
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# Editors / OS cruft
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local agent state
+.claude/

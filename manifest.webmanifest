@@ -1,0 +1,15 @@
+{
+  "name": "Wet-Bulb Calculator",
+  "short_name": "Wet Bulb",
+  "description": "Live, pressure-corrected wet-bulb temperature with a cooling-tower approach reference and an offline psychrometric calculator.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f1419",
+  "theme_color": "#0f1419",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

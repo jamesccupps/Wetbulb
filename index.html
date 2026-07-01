@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef2f6" media="(prefers-color-scheme: light)">
+<title>Wet-Bulb Calculator — live, pressure-corrected psychrometrics</title>
+<meta name="description" content="Real-time, pressure-corrected wet-bulb temperature by ZIP, city, or GPS, with a cooling-tower approach reference, a shade-WBGT estimate, a 24-hour trend and forecast, and an offline manual psychrometric calculator. Zero dependencies.">
+<meta name="author" content="James Cupps">
+<link rel="canonical" href="https://jamesccupps.github.io/Wetbulb/">
+<!-- Social preview. og:image is an SVG (Discord/Slack fall back to the text card;
+     for GitHub links, upload assets/social-card.svg as the repo social preview). -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Wet-Bulb Calculator">
+<meta property="og:description" content="Live, pressure-corrected wet-bulb temperature with a cooling-tower approach reference and an offline psychrometric calculator.">
+<meta property="og:url" content="https://jamesccupps.github.io/Wetbulb/">
+<meta property="og:image" content="https://jamesccupps.github.io/Wetbulb/assets/social-card.svg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Wet-Bulb Calculator">
+<meta name="twitter:description" content="Live, pressure-corrected wet-bulb temperature with a cooling-tower approach reference and an offline psychrometric calculator.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 8C50 8 78 44 78 64a28 28 0 1 1-56 0C22 44 50 8 50 8Z' fill='%2338bdf8'/%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span class="dot" aria-hidden="true"></span>Wet-Bulb Calculator</h1>
+      <div class="sub">Live conditions by ZIP, city, or GPS &middot; pressure-corrected psychrometric wet-bulb temperature</div>
+    </div>
+    <span class="seg" id="themeSeg" role="group" aria-label="Color theme">
+      <button type="button" data-theme="auto" aria-pressed="true">Auto</button>
+      <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+      <button type="button" data-theme="light" aria-pressed="false">Light</button>
+    </span>
+  </header>
+
+  <div class="card">
+    <div class="controls">
+      <div class="field">
+        <label for="locInput" class="hidden">Location (ZIP or city)</label>
+        <input type="text" id="locInput" placeholder="ZIP (e.g. 04101) or city (e.g. Scarborough, ME)" autocomplete="off" enterkeyhint="search" list="recentList">
+        <datalist id="recentList"></datalist>
+        <button type="button" class="primary" id="goBtn">Get conditions</button>
+      </div>
+      <button type="button" class="icon" id="gpsBtn" aria-label="Use my location"><span aria-hidden="true">&#x1F4CD;</span> Locate</button>
+    </div>
+    <div class="opts">
+      <span id="unitLabel">Units</span>
+      <span class="seg" id="unitSeg" role="group" aria-labelledby="unitLabel">
+        <button type="button" data-u="F" aria-pressed="true">&deg;F</button>
+        <button type="button" data-u="C" aria-pressed="false">&deg;C</button>
+      </span>
+      <span style="margin-left:auto"></span>
+      <label for="refreshSel">Auto-refresh</label>
+      <select id="refreshSel">
+        <option value="0">Off</option>
+        <option value="5">5 min</option>
+        <option value="10" selected>10 min</option>
+        <option value="15">15 min</option>
+        <option value="30">30 min</option>
+      </select>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div id="status" class="status" role="status" aria-live="polite" aria-atomic="true">Enter a location to begin, or tap Locate.</div>
+
+  <div id="result" class="card hidden" role="region" aria-label="Current conditions">
+    <div class="loc">
+      <div>
+        <div class="name" id="locName">&mdash;</div>
+        <div class="meta" id="locMeta"></div>
+      </div>
+      <div class="wx">
+        <div id="wxDesc"></div>
+        <div id="obsTime" style="margin-top:2px"></div>
+      </div>
+    </div>
+
+    <div class="hero">
+      <div>
+        <div class="label">Wet-bulb temperature</div>
+        <div style="display:flex;align-items:baseline;gap:12px">
+          <span class="big" id="wbBig">&mdash;</span>
+          <span class="alt" id="wbAlt"></span>
+        </div>
+      </div>
+      <div style="margin-left:auto;align-self:center" id="stressBadge"></div>
+    </div>
+
+    <div class="scale">
+      <div class="track" id="track">
+        <div class="mark dp" id="mDp" aria-hidden="true"></div>
+        <div class="mark wb" id="mWb" aria-hidden="true"></div>
+        <div class="mark db" id="mDb" aria-hidden="true"></div>
+        <div class="mlabel top" id="lWb"></div>
+        <div class="mlabel bot" id="lDp">dew point</div>
+        <div class="mlabel bot" id="lDb">dry bulb</div>
+      </div>
+    </div>
+
+    <div class="grid" role="group" aria-label="Derived metrics">
+      <div class="metric"><div class="k">Dry bulb (air)</div><div class="v" id="mTemp">&mdash;</div></div>
+      <div class="metric"><div class="k">Dew point</div><div class="v" id="mDew">&mdash;</div></div>
+      <div class="metric"><div class="k">Rel. humidity</div><div class="v" id="mRh">&mdash;</div></div>
+      <div class="metric"><div class="k">WB depression</div><div class="v" id="mDep">&mdash;</div></div>
+      <div class="metric"><div class="k">Pressure</div><div class="v" id="mPres">&mdash;</div></div>
+      <div class="metric"><div class="k">Feels like</div><div class="v" id="mFeels">&mdash;</div></div>
+      <div class="metric"><div class="k">Wind</div><div class="v" id="mWind">&mdash;</div></div>
+      <div class="metric"><div class="k">Elevation</div><div class="v" id="mElev">&mdash;</div></div>
+    </div>
+
+    <div class="callout" id="wbgtLine" hidden></div>
+    <div class="callout" id="outlook" hidden></div>
+
+    <div class="actions">
+      <button type="button" class="mini" id="copyBtn">Copy summary</button>
+      <button type="button" class="mini" id="shareBtn">Copy link</button>
+      <button type="button" class="mini" id="csvBtn">Download 24h CSV</button>
+    </div>
+
+    <div class="meth" id="methNote"></div>
+  </div>
+
+  <div id="chartCard" class="card hidden">
+    <h2>Wet bulb &mdash; 24h trend &amp; outlook
+      <span id="chartLegend" style="font-weight:400;font-size:12px;color:var(--muted)"></span>
+    </h2>
+    <div id="chartBox" style="margin-top:8px;width:100%"></div>
+    <div class="note" id="chartNote"></div>
+  </div>
+
+  <div id="towerCard" class="card hidden">
+    <h2>Cooling tower reference</h2>
+    <div class="note">A cooling tower can chill water toward &mdash; but never below &mdash; the ambient wet-bulb temperature. The gap it actually achieves is the <em>approach</em>.</div>
+    <div class="tower-row">
+      <div>
+        <label>Theoretical min cold water</label><br>
+        <span class="twval" id="twMin">&mdash;</span>
+      </div>
+      <div>
+        <label for="approachIn">Design approach</label><br>
+        <input type="number" id="approachIn" value="7" min="0" max="30" step="0.5"> <span id="apprUnit">&deg;F</span>
+      </div>
+      <div>
+        <label for="designWbIn">Site design wet-bulb</label><br>
+        <input type="number" id="designWbIn" placeholder="e.g. 74" step="0.5"> <span id="designWbUnit">&deg;F</span>
+      </div>
+      <div>
+        <label>Achievable cold water</label><br>
+        <span class="twval" id="twCold">&mdash;</span>
+      </div>
+    </div>
+    <div class="note" id="towerHint"></div>
+    <div class="callout" id="towerMargin" hidden></div>
+  </div>
+
+  <div class="card">
+    <h2>Manual calculator
+      <span style="font-weight:400;font-size:12px;color:var(--muted)">no internet needed</span>
+    </h2>
+    <div class="note">Enter any air temperature and relative humidity to get the wet-bulb temperature directly. Pressure defaults to sea level (~29.92 inHg); adjust it if you know the local station pressure.</div>
+    <div class="tower-row" style="margin-top:12px">
+      <div>
+        <label for="mTempIn">Air temp</label><br>
+        <input type="number" id="mTempIn" value="85" step="0.1"> <span id="mTempUnit">&deg;F</span>
+      </div>
+      <div>
+        <label for="mRhIn">Rel. humidity</label><br>
+        <input type="number" id="mRhIn" value="50" min="0" max="100" step="1"> %
+      </div>
+      <div>
+        <label for="mPresIn">Pressure</label><br>
+        <input type="number" id="mPresIn" value="29.92" step="0.01"> inHg
+      </div>
+      <div>
+        <label for="manApproachIn">Approach</label><br>
+        <input type="number" id="manApproachIn" value="7" min="0" max="40" step="0.5" style="width:80px"> <span id="manApprUnit">&deg;F</span>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:14px" role="group" aria-label="Manual calculator results">
+      <div class="metric"><div class="k">Wet bulb</div><div class="v" id="manWb" style="color:var(--accent)">&mdash;</div></div>
+      <div class="metric"><div class="k">Dew point</div><div class="v" id="manDew">&mdash;</div></div>
+      <div class="metric"><div class="k">WB depression</div><div class="v" id="manDep">&mdash;</div></div>
+      <div class="metric"><div class="k">Shade WBGT est.</div><div class="v" id="manWbgt">&mdash;</div></div>
+      <div class="metric"><div class="k">Min tower water</div><div class="v" id="manMin">&mdash;</div></div>
+      <div class="metric"><div class="k">Cold water @ approach</div><div class="v" id="manCold" style="color:var(--accent)">&mdash;</div></div>
+    </div>
+    <div id="manBadge" style="margin-top:10px"></div>
+    <div class="note" id="manErr" role="alert" style="color:var(--danger)"></div>
+  </div>
+
+  <footer>
+    Weather data &copy; <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> &middot; ZIP geocoding by <a href="https://www.zippopotam.us" target="_blank" rel="noopener">Zippopotam.us</a><br>
+    Wet-bulb via iterative psychrometric equation (pressure-corrected), cross-checked against the Stull (2011) approximation.
+    <a href="https://github.com/jamesccupps/Wetbulb" target="_blank" rel="noopener">Source &amp; method</a>
+  </footer>
+</div>
+
+<script src="js/psychro.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

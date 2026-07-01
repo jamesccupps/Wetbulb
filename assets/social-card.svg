@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+  <rect width="1200" height="630" fill="#0f1419"/>
+  <rect x="0" y="0" width="1200" height="8" fill="url(#bar)"/>
+  <defs>
+    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1d4ed8"/><stop offset="0.5" stop-color="#38bdf8"/><stop offset="1" stop-color="#fbbf24"/>
+    </linearGradient>
+  </defs>
+  <!-- droplet -->
+  <g transform="translate(880,150)">
+    <path d="M120 20C120 20 210 130 210 200a90 90 0 1 1-180 0C30 130 120 20 120 20Z" fill="#38bdf8"/>
+    <text x="120" y="215" text-anchor="middle" font-size="72" font-weight="700" fill="#06222e">Tw</text>
+  </g>
+  <!-- text -->
+  <text x="90" y="220" font-size="76" font-weight="700" fill="#e6edf3" letter-spacing="-2">Wet-Bulb Calculator</text>
+  <text x="92" y="278" font-size="30" fill="#8b9aa8">Live, pressure-corrected psychrometric wet-bulb temperature</text>
+  <g transform="translate(92,340)" font-size="26" fill="#8b9aa8">
+    <circle cx="10" cy="-8" r="8" fill="#38bdf8"/><text x="30" y="0">Cooling-tower approach reference</text>
+    <circle cx="10" cy="42" r="8" fill="#fbbf24"/><text x="30" y="50">24-hour trend &amp; next-24h forecast peak</text>
+    <circle cx="10" cy="92" r="8" fill="#4ade80"/><text x="30" y="100">Offline manual calculator &middot; zero dependencies</text>
+  </g>
+  <text x="92" y="560" font-size="24" fill="#556575">jamesccupps.github.io/Wetbulb &middot; Data &copy; Open-Meteo</text>
+</svg>

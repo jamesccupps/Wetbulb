@@ -1,0 +1,20 @@
+{
+  "name": "wetbulb",
+  "version": "1.0.0",
+  "description": "Real-time, pressure-corrected wet-bulb temperature calculator with a cooling-tower approach reference and an offline psychrometric calculator. Zero dependencies.",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": ["wet-bulb", "psychrometrics", "hvac", "cooling-tower", "wbgt", "weather", "dew-point"],
+  "author": "James Cupps",
+  "license": "MIT",
+  "homepage": "https://jamesccupps.github.io/Wetbulb/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jamesccupps/Wetbulb.git"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

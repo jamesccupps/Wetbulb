@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Wet-bulb droplet">
+  <rect width="100" height="100" rx="20" fill="#0f1419"/>
+  <path d="M50 18C50 18 74 48 74 66a24 24 0 1 1-48 0C26 48 50 18 50 18Z" fill="#38bdf8"/>
+  <path d="M40 60a10 14 0 0 0 6 16" fill="none" stroke="#0f1419" stroke-width="4" stroke-linecap="round" opacity="0.45"/>
+</svg>
