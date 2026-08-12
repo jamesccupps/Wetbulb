@@ -39,11 +39,16 @@ function compass(deg) {
   var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
   return dirs[Math.round(deg / 22.5) % 16];
 }
-function fmtHour(t) {
+// Hour label with day context. The forecast window is at most +24 h, so a peak
+// can only land today or tomorrow — anything past midnight is labelled
+// explicitly, since a bare "11 AM" otherwise reads as this morning.
+function fmtHour(t, nowT) {
   var hh = parseInt(t.substr(11, 2), 10);
   if (isNaN(hh)) return '';
   var ap = hh < 12 ? 'AM' : 'PM', h12 = hh % 12; if (h12 === 0) h12 = 12;
-  return h12 + ' ' + ap;
+  var label = h12 + ' ' + ap;
+  if (nowT && t.substr(0, 10) !== nowT.substr(0, 10)) label += ' tomorrow';
+  return label;
 }
 function hourLabelShort(t) {
   var hh = parseInt(t.substr(11, 2), 10);
@@ -275,7 +280,7 @@ function render() {
   // next-24h outlook
   if (c.fcPeak) {
     el.outlook.hidden = false;
-    el.outlook.innerHTML = 'Next-24h peak wet-bulb <strong>' + t1(c.fcPeak.wbC) + '</strong> around ' + fmtHour(c.fcPeak.time) + ' — ' +
+    el.outlook.innerHTML = 'Next-24h peak wet-bulb <strong>' + t1(c.fcPeak.wbC) + '</strong> around ' + fmtHour(c.fcPeak.time, cur.time) + ' — ' +
       (c.fcPeak.wbC > c.wbC + 0.3 ? 'rising from now; stage cooling-tower capacity ahead of the peak.'
         : (c.fcPeak.wbC < c.wbC - 0.3 ? 'lower than now; conditions easing.' : 'about the same as now.'));
   } else { el.outlook.hidden = true; }
@@ -295,7 +300,7 @@ function render() {
   var obs = c.series.filter(function (p) { return !p.fc; }).map(function (p) { return dC(p.wbC); });
   c.a11yDesc = 'Wet-bulb now ' + t1(c.wbC) + '. Observed 24-hour range ' +
     (obs.length ? Math.min.apply(null, obs).toFixed(1) + ' to ' + Math.max.apply(null, obs).toFixed(1) + '°' + unit : 'n/a') +
-    (c.fcPeak ? '. Forecast peak ' + t1(c.fcPeak.wbC) + ' around ' + fmtHour(c.fcPeak.time) + '.' : '.');
+    (c.fcPeak ? '. Forecast peak ' + t1(c.fcPeak.wbC) + ' around ' + fmtHour(c.fcPeak.time, cur.time) + '.' : '.');
 
   updateTower();
   drawChart();
