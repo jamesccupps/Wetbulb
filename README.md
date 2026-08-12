@@ -11,7 +11,7 @@ Real-time, **pressure-corrected wet-bulb temperature** by ZIP, city, or GPS — 
 
 > Built for HVAC / facilities work: the wet-bulb temperature is the floor a cooling tower or evaporative process can chase, and it drives worker heat-stress screening. This tool computes it the way a psychrometer would, corrected for the actual station pressure — not a sea-level approximation.
 
-<!-- Add a screenshot once deployed:  ![screenshot](assets/screenshot.png)  -->
+![Wet-Bulb Calculator showing live conditions for Portland, Maine: a 63.6 °F wet-bulb reading with dry-bulb, dew point, humidity, depression and pressure metrics, a shade-WBGT note, a next-24h forecast peak, a 24-hour trend chart, and the cooling-tower approach reference.](assets/screenshot.png)
 
 ## Features
 

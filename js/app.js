@@ -250,7 +250,8 @@ function render() {
   if (finiteNum(c.P)) {
     var inHg = P.hpaToInHg(c.P).toFixed(2);
     var tr = trendText(c.trend);
-    el.mPres.innerHTML = Math.round(c.P) + '<span class="u"> hPa · ' + inHg + ' inHg' + (tr ? ' · ' + tr : '') + '</span>';
+    // nbsp keeps each value glued to its unit so the cell only wraps between pairs
+    el.mPres.innerHTML = Math.round(c.P) + '<span class="u">&nbsp;hPa · ' + inHg + '&nbsp;inHg' + (tr ? ' · ' + tr.replace(/ /g, '&nbsp;') : '') + '</span>';
   } else { el.mPres.innerHTML = '—'; }
   el.mFeels.innerHTML = finiteNum(cur.apparent_temperature) ? t1(cur.apparent_temperature) : '—';
   el.mWind.innerHTML = finiteNum(cur.wind_speed_10m)
