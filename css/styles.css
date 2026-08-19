@@ -8,6 +8,11 @@
   --text:#e6edf3; --muted:#8b9aa8; --accent:#38bdf8; --accent-2:#22d3ee;
   --on-accent:#06222e; --warn:#fbbf24; --danger:#f87171; --good:#4ade80;
   --grid-line:#243240; --shadow:0 1px 3px rgba(0,0,0,.4); --radius:12px;
+  /* Heat-stress ramp. Measured against the .badge background in this theme;
+     every step is >=4.7:1 (WCAG AA for the badge's 12px text). Keep them that
+     way — this readout is the safety-relevant one. */
+  --stress-low:#4ade80; --stress-caution:#a3e635; --stress-high:#fbbf24;
+  --stress-extreme:#fb923c; --stress-limit:#f87171;
   color-scheme: dark;
 }
 
@@ -21,6 +26,8 @@
     --text:#12202c; --muted:#556575; --accent:#0284c7; --accent-2:#0369a1;
     --on-accent:#ffffff; --warn:#b45309; --danger:#dc2626; --good:#15803d;
     --grid-line:#e2e8f0; --shadow:0 1px 3px rgba(15,23,42,.12);
+    --stress-low:#166534; --stress-caution:#3f6212; --stress-high:#854d0e;
+    --stress-extreme:#9a3412; --stress-limit:#b91c1c;
     color-scheme: light;
   }
 }
@@ -29,6 +36,8 @@
   --text:#12202c; --muted:#556575; --accent:#0284c7; --accent-2:#0369a1;
   --on-accent:#ffffff; --warn:#b45309; --danger:#dc2626; --good:#15803d;
   --grid-line:#e2e8f0; --shadow:0 1px 3px rgba(15,23,42,.12);
+  --stress-low:#166534; --stress-caution:#3f6212; --stress-high:#854d0e;
+  --stress-extreme:#9a3412; --stress-limit:#b91c1c;
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -118,7 +127,15 @@ select{background:var(--panel-2);border:1px solid var(--border);color:var(--text
 @media (min-width:560px){ .metric.span2{grid-column:span 2} }
 
 .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;background:color-mix(in srgb,var(--text) 8%,transparent)}
-.badge .pip{width:8px;height:8px;border-radius:50%}
+.badge .pip{width:8px;height:8px;border-radius:50%;background:currentColor}
+/* Heat-stress level -> theme-aware color. The level slug comes from
+   Psychro.heatStress(); the color lives here so light and dark each get a
+   ramp that actually passes contrast against the badge background. */
+.badge[data-level="low"]{color:var(--stress-low)}
+.badge[data-level="caution"]{color:var(--stress-caution)}
+.badge[data-level="high"]{color:var(--stress-high)}
+.badge[data-level="extreme"]{color:var(--stress-extreme)}
+.badge[data-level="limit"]{color:var(--stress-limit)}
 
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 
@@ -135,6 +152,11 @@ h2{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;display:fl
 .status{font-size:13px;color:var(--muted);text-align:center;padding:10px}
 .status.err{color:var(--danger)}
 .hidden{display:none}
+/* Visually hidden but still in the accessibility tree. display:none is NOT a
+   substitute: it drops the label entirely and the browser falls back to naming
+   the field by its placeholder, which vanishes as soon as you type. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
 

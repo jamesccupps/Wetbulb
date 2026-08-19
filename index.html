@@ -41,7 +41,7 @@
   <div class="card">
     <div class="controls">
       <div class="field">
-        <label for="locInput" class="hidden">Location (ZIP or city)</label>
+        <label for="locInput" class="sr-only">Location (ZIP or city)</label>
         <input type="text" id="locInput" placeholder="ZIP (e.g. 04101) or city (e.g. Scarborough, ME)" autocomplete="off" enterkeyhint="search" list="recentList">
         <datalist id="recentList"></datalist>
         <button type="button" class="primary" id="goBtn">Get conditions</button>
@@ -163,7 +163,7 @@
     <h2>Manual calculator
       <span style="font-weight:400;font-size:12px;color:var(--muted)">no internet needed</span>
     </h2>
-    <div class="note">Enter any air temperature and relative humidity to get the wet-bulb temperature directly. Pressure defaults to sea level (~29.92 inHg); adjust it if you know the local station pressure.</div>
+    <div class="note">Enter any air temperature and relative humidity to get the wet-bulb temperature directly. Pressure defaults to sea level and follows the unit toggle &mdash; inHg in &deg;F mode, hPa in &deg;C mode; adjust it if you know the local station pressure.</div>
     <div class="tower-row" style="margin-top:12px">
       <div>
         <label for="mTempIn">Air temp</label><br>
@@ -175,7 +175,7 @@
       </div>
       <div>
         <label for="mPresIn">Pressure</label><br>
-        <input type="number" id="mPresIn" value="29.92" step="0.01"> inHg
+        <input type="number" id="mPresIn" value="29.92" step="0.01"> <span id="mPresUnit">inHg</span>
       </div>
       <div>
         <label for="manApproachIn">Approach</label><br>

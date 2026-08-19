@@ -11,7 +11,7 @@ var IDS = ['locInput','goBtn','gpsBtn','unitSeg','themeSeg','refreshSel','chips'
   'mDp','mWb','mDb','lWb','lDp','lDb','mTemp','mDew','mRh','mDep','mPres','mFeels','mWind','mElev',
   'copyBtn','shareBtn','csvBtn','methNote','chartCard','chartBox','chartNote','chartLegend',
   'towerCard','twMin','approachIn','apprUnit','designWbIn','designWbUnit','twCold','towerHint','towerMargin',
-  'mTempIn','mTempUnit','mRhIn','mPresIn','manApproachIn','manApprUnit','manWb','manDew','manDep','manWbgt',
+  'mTempIn','mTempUnit','mRhIn','mPresIn','mPresUnit','manApproachIn','manApprUnit','manWb','manDew','manDep','manWbgt',
   'manMin','manCold','manBadge','manErr'];
 var el = {};
 IDS.forEach(function (id) { el[id] = document.getElementById(id); });
@@ -25,6 +25,13 @@ var timedOut = false;
 
 /* ---------- helpers ---------- */
 function finiteNum(v) { return typeof v === 'number' && isFinite(v); }
+// A place is only usable if lat/lon are real numbers in range. Note isFinite()
+// alone is not enough: it coerces, so a stringified "43.66" out of localStorage
+// would pass and then throw in placeKey()'s toFixed().
+function validPlace(p) {
+  return !!p && finiteNum(p.lat) && finiteNum(p.lon) &&
+    p.lat >= -90 && p.lat <= 90 && p.lon >= -180 && p.lon <= 180;
+}
 function dC(c) { return unit === 'F' ? P.cToF(c) : c; }            // Celsius value -> display
 function dDelta(c) { return unit === 'F' ? P.deltaCToF(c) : c; }   // Celsius delta -> display
 function t1(c) { return finiteNum(c) ? dC(c).toFixed(1) + '°' + unit : '—'; }
@@ -33,6 +40,22 @@ function placeKey(p) { return p.lat.toFixed(4) + ',' + p.lon.toFixed(4); }
 function shortName(n) { return (n || '').split(',')[0]; }
 function slug(s) { return (s || 'location').replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '').toLowerCase(); }
 function escXml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+// Render a heat-stress badge. The color comes from the data-level attribute via
+// CSS, not from an inline style, so the badge follows the active theme.
+function setBadge(host, st, title) {
+  host.textContent = '';
+  var b = document.createElement('span');
+  b.className = 'badge';
+  b.setAttribute('data-level', st.level);
+  if (title) b.title = title;
+  var pip = document.createElement('span');
+  pip.className = 'pip';
+  pip.setAttribute('aria-hidden', 'true');
+  b.appendChild(pip);
+  b.appendChild(document.createTextNode(st.t));
+  host.appendChild(b);
+}
 
 function compass(deg) {
   if (!finiteNum(deg)) return '';
@@ -161,9 +184,13 @@ function run(place) {
 }
 
 /* ---------- derived series (Celsius) ---------- */
+// Index of the most recent hourly sample at or before nowT. Scans the whole
+// array rather than breaking on the first later stamp: with timezone=auto these
+// are local wall-clock strings, which are not strictly increasing across the
+// DST fall-back hour, and an early break would stop short there.
 function hourlyNowIndex(h, nowT) {
   var idx = 0;
-  for (var i = 0; i < h.time.length; i++) { if (h.time[i] <= nowT) idx = i; else break; }
+  for (var i = 0; i < h.time.length; i++) { if (h.time[i] <= nowT) idx = i; }
   return idx;
 }
 function buildSeries(w) {
@@ -243,9 +270,7 @@ function render() {
   // hero + alternate unit
   el.wbBig.textContent = t1(c.wbC);
   el.wbAlt.textContent = unit === 'F' ? c.wbC.toFixed(1) + '°C' : P.cToF(c.wbC).toFixed(1) + '°F';
-  var st = P.heatStress(c.wbC);
-  el.stressBadge.innerHTML = '<span class="badge" title="Ambient wet-bulb heat-stress screening" style="color:' + st.c + '">' +
-    '<span class="pip" style="background:' + st.c + '"></span>' + st.t + '</span>';
+  setBadge(el.stressBadge, P.heatStress(c.wbC), 'Ambient wet-bulb heat-stress screening');
 
   // metrics (each optional field guarded)
   el.mTemp.innerHTML = t1(c.Tc);
@@ -289,8 +314,14 @@ function render() {
   var note = 'Computed from air temp ' + t1(c.Tc) + ', RH ' + Math.round(c.RH) + '%, and station pressure ' +
     (finiteNum(c.P) ? Math.round(c.P) + ' hPa' : 'sea-level default') + '. ';
   if (finiteNum(c.wbStull)) {
-    note += 'Stull cross-check: ' + t1(c.wbStull) + ' (Δ ' + tDelta(Math.abs(c.wbC - c.wbStull)) + ').';
+    var dStull = Math.abs(c.wbC - c.wbStull);
+    note += 'Stull cross-check: ' + t1(c.wbStull) + ' (Δ ' + tDelta(dStull) + ').';
     if (finiteNum(c.P) && Math.abs(c.P - 1013.25) > 40) note += ' Stull is a sea-level fit, so the Δ grows with elevation.';
+    // Stull's fit degrades badly in cold, dry air — up to ~4 °C at the −20 °C /
+    // 5 % RH corner of its own published envelope. Say so rather than letting a
+    // large Δ read as doubt about the psychrometric value, which is the one
+    // shown and is accurate to ~0.25 °C against ASHRAE across this whole range.
+    if (dStull > 1) note += ' The Stull fit loses accuracy in cold, dry air; the psychrometric value above is the reliable one.';
   } else {
     note += 'Stull cross-check n/a (outside its RH 5–99% / −20…50°C validity range).';
   }
@@ -356,9 +387,13 @@ function drawChart() {
     '<span aria-hidden="true" style="color:' + pal.accent + '">●</span> wet bulb ' +
     '<span aria-hidden="true" style="color:' + pal.warn + ';margin-left:10px">●</span> dry bulb ' +
     '<span aria-hidden="true" style="color:' + pal.muted + ';margin-left:10px">●</span> dew point';
+  // Guard the empty case: Math.min.apply(null, []) is Infinity, which would
+  // print "Observed 24h wet-bulb Infinity–-Infinity".
   var wbs = pts.filter(function (p) { return !p.fc; }).map(function (p) { return p.wb; });
-  el.chartNote.textContent = 'Observed 24h wet-bulb ' + Math.min.apply(null, wbs).toFixed(1) + '–' +
-    Math.max.apply(null, wbs).toFixed(1) + '°' + unit + '. Solid = observed, dashed = forecast.';
+  el.chartNote.textContent = (wbs.length
+    ? 'Observed 24h wet-bulb ' + Math.min.apply(null, wbs).toFixed(1) + '–' +
+      Math.max.apply(null, wbs).toFixed(1) + '°' + unit + '. '
+    : 'No observed hours in range. ') + 'Solid = observed, dashed = forecast.';
 }
 function buildChartSVG(pts) {
   var pal = palette();
@@ -417,15 +452,33 @@ function buildChartSVG(pts) {
 }
 
 /* ---------- manual calculator (offline) ---------- */
+// Station pressure follows the unit toggle: inHg alongside °F, hPa alongside °C.
+// Plausible station-pressure envelope, from roughly Dead Sea level to ~5000 m.
+var PRES_MIN_HPA = 500, PRES_MAX_HPA = 1100;
+function presUnit() { return unit === 'F' ? 'inHg' : 'hPa'; }
+function presDefault() { return unit === 'F' ? 29.92 : 1013.25; }
+function presToHpa(v) { return unit === 'F' ? P.inHgToHpa(v) : v; }
+function presFromHpa(h) { return unit === 'F' ? P.hpaToInHg(h) : h; }
+function presDecimals() { return unit === 'F' ? 2 : 0; }
+
 function updateManual() {
   var tRaw = parseFloat(el.mTempIn.value);
   var rh = parseFloat(el.mRhIn.value);
-  var prIn = parseFloat(el.mPresIn.value);
-  if (isNaN(prIn) || prIn <= 0) prIn = 29.92;
-  var pr = P.inHgToHpa(prIn);
+  var prRaw = parseFloat(el.mPresIn.value);
+  var pr = isNaN(prRaw) ? presToHpa(presDefault()) : presToHpa(prRaw);
   el.manErr.textContent = '';
   if (isNaN(tRaw) || isNaN(rh)) { clearManual(); el.manErr.textContent = 'Enter a temperature and humidity.'; return; }
   if (rh < 0 || rh > 100) { clearManual(); el.manErr.textContent = 'Humidity must be between 0 and 100%.'; return; }
+  // Catch the classic slip of typing hPa into an inHg field (and vice versa):
+  // silently accepting 1010 inHg would return a wet bulb ≈ dry bulb with no hint
+  // anything was wrong.
+  if (!isNaN(prRaw) && (pr < PRES_MIN_HPA || pr > PRES_MAX_HPA)) {
+    clearManual();
+    el.manErr.textContent = 'Pressure must be between ' +
+      presFromHpa(PRES_MIN_HPA).toFixed(presDecimals()) + ' and ' +
+      presFromHpa(PRES_MAX_HPA).toFixed(presDecimals()) + ' ' + presUnit() + '.';
+    return;
+  }
   var tC = unit === 'F' ? P.fToC(tRaw) : tRaw;
   var td = P.dewpoint(tC, rh);
   var wbC = P.wetBulb(tC, rh, pr, td);
@@ -437,9 +490,7 @@ function updateManual() {
   var appr = parseFloat(el.manApproachIn.value); if (isNaN(appr)) appr = 0;
   var apprC = unit === 'F' ? P.deltaFToC(appr) : appr;
   el.manCold.textContent = t1(wbC + apprC);
-  var st = P.heatStress(wbC);
-  el.manBadge.innerHTML = '<span class="badge" style="color:' + st.c + '">' +
-    '<span class="pip" style="background:' + st.c + '"></span>' + st.t + '</span>';
+  setBadge(el.manBadge, P.heatStress(wbC), 'Ambient wet-bulb heat-stress screening');
 }
 function clearManual() {
   ['manWb','manDew','manDep','manWbgt','manMin','manCold'].forEach(function (id) { el[id].textContent = '—'; });
@@ -450,15 +501,15 @@ function clearManual() {
 function jget(k, d) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
 function jset(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 
-function saveLast(p) { jset('wb_last', { lat: p.lat, lon: p.lon, name: p.name, detail: p.detail || '', query: p.query || '' }); }
+function saveLast(p) { jset('wb_last', { lat: p.lat, lon: p.lon, name: p.name, detail: p.detail || '', query: p.query || '', gps: !!p.gps }); }
 function loadLast() { return jget('wb_last', null); }
-function loadSites() { return jget('wb_sites', []); }
+function loadSites() { var a = jget('wb_sites', []); return Array.isArray(a) ? a.filter(validPlace) : []; }
 function saveSites(a) { jset('wb_sites', a); }
 function isSaved(p) { var k = placeKey(p); return loadSites().some(function (s) { return placeKey(s) === k; }); }
 function addSite(p) {
   var a = loadSites();
   if (!a.some(function (s) { return placeKey(s) === placeKey(p); })) {
-    a.push({ name: p.name, lat: p.lat, lon: p.lon, detail: p.detail || '', query: p.query || '' });
+    a.push({ name: p.name, lat: p.lat, lon: p.lon, detail: p.detail || '', query: p.query || '', gps: !!p.gps });
     saveSites(a);
   }
   renderChips();
@@ -466,7 +517,14 @@ function addSite(p) {
 function removeSite(key) { saveSites(loadSites().filter(function (s) { return placeKey(s) !== key; })); renderChips(); }
 
 function loadDesignWb(p) { var m = jget('wb_designwb', {}); var v = m[placeKey(p)]; return finiteNum(v) ? v : null; }
-function saveDesignWb(p, valC) { var m = jget('wb_designwb', {}); m[placeKey(p)] = valC; jset('wb_designwb', m); }
+// valC === null clears the site's design wet-bulb. Without a delete path a
+// cleared field would be repopulated from storage by the next computeAndRender
+// (i.e. silently restored within one auto-refresh).
+function saveDesignWb(p, valC) {
+  var m = jget('wb_designwb', {}), k = placeKey(p);
+  if (valC == null) delete m[k]; else m[k] = valC;
+  jset('wb_designwb', m);
+}
 
 function pushRecent(p) {
   if (!p.query) return;
@@ -511,7 +569,16 @@ function shareURL() {
   var p = current ? current.place : null;
   if (p) {
     if (p.query) u.searchParams.set('loc', p.query);
-    else { u.searchParams.set('lat', p.lat.toFixed(4)); u.searchParams.set('lon', p.lon.toFixed(4)); if (p.name) u.searchParams.set('n', p.name); }
+    else {
+      // A GPS fix is the user's actual position. 4 dp pins it to ~11 m, and this
+      // string lands in the address bar, in browser history, and in whatever
+      // they paste "Copy link" into. 2 dp (~1.1 km) is coarser than Open-Meteo's
+      // own grid, so the reading is unchanged while the house is not.
+      var dp = p.gps ? 2 : 4;
+      u.searchParams.set('lat', p.lat.toFixed(dp));
+      u.searchParams.set('lon', p.lon.toFixed(dp));
+      if (p.name) u.searchParams.set('n', p.name);
+    }
   }
   u.searchParams.set('u', unit);
   return u.toString();
@@ -550,9 +617,16 @@ function flashBtn(btn, msg) {
 }
 function downloadCSV(btn) {
   if (!current || !current.series.length) return;
-  var rows = [['time', 'dry_bulb_' + unit, 'wet_bulb_' + unit, 'dew_point_' + unit, 'rel_humidity_pct', 'pressure_hPa', 'type']];
+  // Timestamps are local wall-clock (Open-Meteo timezone=auto). Carrying the
+  // zone and UTC offset alongside them keeps the series unambiguous when it is
+  // lined up against a BAS trend log recorded in a different zone — or across a
+  // DST transition, where a bare local stamp repeats an hour.
+  var tz = current.w.timezone || '', tzAbbr = current.w.timezone_abbreviation || '';
+  var off = finiteNum(current.w.utc_offset_seconds) ? current.w.utc_offset_seconds : '';
+  var rows = [['time_local', 'timezone', 'tz_abbr', 'utc_offset_seconds',
+    'dry_bulb_' + unit, 'wet_bulb_' + unit, 'dew_point_' + unit, 'rel_humidity_pct', 'pressure_hPa', 'type']];
   current.series.forEach(function (p) {
-    rows.push([p.time, dC(p.tC).toFixed(1), dC(p.wbC).toFixed(1), dC(p.tdC).toFixed(1),
+    rows.push([p.time, tz, tzAbbr, off, dC(p.tC).toFixed(1), dC(p.wbC).toFixed(1), dC(p.tdC).toFixed(1),
       finiteNum(p.rh) ? Math.round(p.rh) : '', finiteNum(p.pr) ? Math.round(p.pr) : '', p.fc ? 'forecast' : 'observed']);
   });
   var csv = rows.map(function (r) { return r.join(','); }).join('\n');
@@ -589,7 +663,7 @@ function useGPS() {
   if (!navigator.geolocation) { setStatus('Geolocation not available in this browser.', true); return; }
   loading('Getting your location…');
   navigator.geolocation.getCurrentPosition(function (pos) {
-    run({ lat: pos.coords.latitude, lon: pos.coords.longitude, name: 'Your location', detail: '' });
+    run({ lat: pos.coords.latitude, lon: pos.coords.longitude, name: 'Your location', detail: '', gps: true });
   }, function (err) {
     setStatus('Location denied or unavailable (' + err.message + '). Enter a ZIP instead.', true);
   }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
@@ -603,6 +677,11 @@ function setRefresh(min) {
 /* ---------- units & theme ---------- */
 function convAbs(input, newU) { var v = parseFloat(input.value); if (!isNaN(v)) input.value = (newU === 'C' ? P.fToC(v) : P.cToF(v)).toFixed(1); }
 function convDelta(input, newU) { var v = parseFloat(input.value); if (!isNaN(v)) input.value = (newU === 'C' ? P.deltaFToC(v) : P.deltaCToF(v)).toFixed(1); }
+// Station pressure: inHg under °F, hPa under °C.
+function convPres(input, newU) {
+  var v = parseFloat(input.value); if (isNaN(v)) return;
+  input.value = newU === 'C' ? P.inHgToHpa(v).toFixed(0) : P.hpaToInHg(v).toFixed(2);
+}
 function setUnit(newU, convertInputs) {
   if (newU !== 'F' && newU !== 'C') newU = 'F';
   if (convertInputs && newU !== unit) {
@@ -610,6 +689,7 @@ function setUnit(newU, convertInputs) {
     convAbs(el.designWbIn, newU);       // an absolute wet-bulb temperature
     convDelta(el.approachIn, newU);     // deltas
     convDelta(el.manApproachIn, newU);
+    convPres(el.mPresIn, newU);         // inHg <-> hPa
   }
   unit = newU;
   jset('wb_unit', unit);
@@ -620,6 +700,8 @@ function setUnit(newU, convertInputs) {
   el.manApprUnit.textContent = '°' + unit;
   el.apprUnit.textContent = '°' + unit;
   el.designWbUnit.textContent = '°' + unit;
+  el.mPresUnit.textContent = presUnit();
+  el.mPresIn.step = unit === 'F' ? '0.01' : '1';
   updateManual();
   if (current) render();
 }
@@ -648,8 +730,9 @@ function wireEvents() {
   el.approachIn.addEventListener('input', updateTower);
   el.designWbIn.addEventListener('input', function () {
     if (current) {
-      var v = parseFloat(el.designWbIn.value);
-      if (!isNaN(v)) saveDesignWb(current.place, unit === 'F' ? P.fToC(v) : v);
+      var raw = el.designWbIn.value.trim(), v = parseFloat(raw);
+      if (raw === '') saveDesignWb(current.place, null);            // cleared: forget it
+      else if (!isNaN(v)) saveDesignWb(current.place, unit === 'F' ? P.fToC(v) : v);
     }
     updateTower();
   });
@@ -689,11 +772,14 @@ function boot() {
     return;
   }
   if (sp.get('loc')) { el.locInput.value = sp.get('loc'); resolveAndRun(sp.get('loc')); return; }
-  var lat = parseFloat(sp.get('lat')), lon = parseFloat(sp.get('lon'));
-  if (isFinite(lat) && isFinite(lon)) { run({ lat: lat, lon: lon, name: sp.get('n') || 'Shared location', detail: '' }); return; }
+  var shared = { lat: parseFloat(sp.get('lat')), lon: parseFloat(sp.get('lon')),
+                 name: (sp.get('n') || 'Shared location').slice(0, 120), detail: '' };
+  if (validPlace(shared)) { run(shared); return; }
 
+  // Anything unusable here (stale schema, partial write, hand-edited storage)
+  // falls through to the default rather than dead-ending the whole app.
   var last = loadLast();
-  if (last && isFinite(last.lat)) { el.locInput.value = last.query || ''; run(last); return; }
+  if (validPlace(last)) { el.locInput.value = last.query || ''; run(last); return; }
   el.locInput.value = '04101';
   resolveAndRun('04101');
 }

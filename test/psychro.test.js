@@ -30,9 +30,10 @@ test('wet bulb is bracketed by dew point and dry bulb across a wide grid', () =>
   }
 });
 
-test('psychro and Stull agree within ~1 °C over Stull\'s valid range', () => {
-  // A coefficient typo in either method blows this well past 1 °C; the real
-  // agreement is ~0.3 °C typical, ~0.85 °C at the grid corners.
+test('psychro and Stull agree within ~1 °C over ordinary conditions', () => {
+  // A coefficient typo in either method blows this well past 1 °C. Note this
+  // grid is deliberately narrower than stullValid()'s envelope — see the
+  // cold-and-dry test below for what happens at the true corners.
   let maxDelta = 0;
   for (let Tc = 0; Tc <= 45; Tc += 5) {
     for (let RH = 20; RH <= 95; RH += 5) {
@@ -41,6 +42,39 @@ test('psychro and Stull agree within ~1 °C over Stull\'s valid range', () => {
     }
   }
   assert.ok(maxDelta <= 1.0, `max psychro–Stull delta ${maxDelta.toFixed(3)} °C`);
+});
+
+test('Stull divergence is pinned across the whole envelope stullValid() admits', () => {
+  // The 1 °C bound above is measured on a grid that never reaches the cold, dry
+  // corner — but stullValid() returns true there, so the app will happily show a
+  // cross-check Δ at −20 °C / 5 % RH. That Δ is ~4 °C, not ~0.85 °C. Pin the real
+  // number so the envelope and the tolerance can never silently drift apart.
+  let maxDelta = 0, at = null;
+  for (let Tc = -20; Tc <= 50; Tc += 1) {
+    for (let RH = 5; RH <= 99; RH += 1) {
+      if (!P.stullValid(Tc, RH)) continue;
+      const d = Math.abs(P.wetBulb(Tc, RH, 1013.25, P.dewpoint(Tc, RH)) - P.wetBulbStull(Tc, RH));
+      if (d > maxDelta) { maxDelta = d; at = `${Tc} °C / ${RH} %`; }
+    }
+  }
+  assert.ok(maxDelta <= 4.2, `envelope-wide max delta ${maxDelta.toFixed(2)} °C at ${at}`);
+  // And it really is the cold/dry corner that drives it, not a coefficient slip
+  // somewhere in the middle of the range.
+  assert.ok(maxDelta >= 3.5, `expected the cold/dry corner to dominate, got ${maxDelta.toFixed(2)} °C`);
+  assert.equal(at, '-20 °C / 5 %');
+});
+
+test('Stull stays close to psychro wherever it is warm or humid', () => {
+  // The practical envelope for HVAC/cooling-tower work. Divergence is confined
+  // to cold + very dry air; anywhere a tower is running, the fits track well.
+  let maxDelta = 0, at = null;
+  for (let Tc = 5; Tc <= 50; Tc += 1) {
+    for (let RH = 15; RH <= 99; RH += 1) {
+      const d = Math.abs(P.wetBulb(Tc, RH, 1013.25, P.dewpoint(Tc, RH)) - P.wetBulbStull(Tc, RH));
+      if (d > maxDelta) { maxDelta = d; at = `${Tc} °C / ${RH} %`; }
+    }
+  }
+  assert.ok(maxDelta <= 1.0, `warm/humid max delta ${maxDelta.toFixed(3)} °C at ${at}`);
 });
 
 test('RH ≥ 100 % returns dry bulb exactly (no discontinuity artifact)', () => {
@@ -94,18 +128,38 @@ test('stullValid gates the published envelope', () => {
   assert.ok(!P.stullValid(-30, 50));  // T below -20
 });
 
+test('heatStress returns a label + level slug, and no presentation detail', () => {
+  const bands = [[20, 'low'], [27, 'caution'], [30, 'high'], [33, 'extreme'], [36, 'limit']];
+  for (const [wb, level] of bands) {
+    const s = P.heatStress(wb);
+    assert.equal(s.level, level, `band at ${wb} °C`);
+    assert.ok(typeof s.t === 'string' && s.t.length, `label at ${wb} °C`);
+    // The core is imported by Node and must not leak colors into the UI layer;
+    // a hardcoded hex here is what broke light-theme contrast in 1.0.0.
+    assert.ok(!('c' in s), `no color key at ${wb} °C`);
+  }
+});
+
+test('heatStress bands are contiguous and ordered across the edges', () => {
+  const order = ['low', 'caution', 'high', 'extreme', 'limit'];
+  let prev = 0;
+  for (let wb = 15; wb <= 40; wb += 0.25) {
+    const i = order.indexOf(P.heatStress(wb).level);
+    assert.ok(i >= 0, `known level at ${wb} °C`);
+    assert.ok(i >= prev, `never steps back down at ${wb} °C`);
+    prev = i;
+  }
+  assert.equal(P.heatStress(25.99).level, 'low');
+  assert.equal(P.heatStress(26).level, 'caution');
+  assert.equal(P.heatStress(34.99).level, 'extreme');
+  assert.equal(P.heatStress(35).level, 'limit');   // Sherwood & Huber (2010)
+});
+
 test('shade WBGT estimate sits between wet bulb and dry bulb', () => {
   const wb = 24, db = 33;
   const w = P.wbgtShade(wb, db);
   assert.ok(w > wb && w < db, `${wb} < ${w} < ${db}`);
   close(w, 0.7 * wb + 0.3 * db, 1e-9, 'formula');
-});
-
-test('wind chill defined only for cold + windy, else null', () => {
-  assert.equal(P.windChillF(60, 20), null);   // too warm
-  assert.equal(P.windChillF(20, 2), null);    // too calm
-  const wc = P.windChillF(20, 20);
-  assert.ok(Number.isFinite(wc) && wc < 20, `wind chill ${wc} < 20 °F`);
 });
 
 test('unit conversions round-trip and handle deltas without the 32° offset', () => {

@@ -79,12 +79,22 @@
 
   // Ambient wet-bulb heat-stress screening bands (°C wet-bulb). Note these are
   // a *wet-bulb* scale, not WBGT; the caller must label them as such.
+  //
+  // Returns a label plus a stable `level` slug. Deliberately NOT a color: this
+  // module is imported by Node and must stay free of presentation concerns.
+  // The caller maps level -> a theme-aware CSS custom property, which is what
+  // keeps the badge legible in both light and dark.
+  //
+  // Band edges are a screening convention, not a published standard. Only the
+  // 35 °C figure is sourced (Sherwood & Huber 2010, the survivability limit for
+  // sustained exposure); 26/29/31 are pragmatic staging thresholds. Do not
+  // present these as OSHA/ACGIH limits — those are stated in WBGT.
   function heatStress(wbC) {
-    if (wbC < 26) return { t: 'Low risk', c: 'var(--good)' };
-    if (wbC < 29) return { t: 'Caution', c: '#a3e635' };
-    if (wbC < 31) return { t: 'High risk', c: 'var(--warn)' };
-    if (wbC < 35) return { t: 'Extreme', c: '#fb923c' };
-    return { t: 'Survivability limit', c: 'var(--danger)' };
+    if (wbC < 26) return { t: 'Low risk', level: 'low' };
+    if (wbC < 29) return { t: 'Caution', level: 'caution' };
+    if (wbC < 31) return { t: 'High risk', level: 'high' };
+    if (wbC < 35) return { t: 'Extreme', level: 'extreme' };
+    return { t: 'Survivability limit', level: 'limit' };
   }
 
   // Estimated *shade / no-solar* WBGT ≈ 0.7·Tnwb + 0.3·Tdb, approximating the
@@ -92,13 +102,6 @@
   // estimate: it is NOT valid in direct sun (which adds a globe-temperature
   // load, typically several °C higher) and is not a compliance measurement.
   function wbgtShade(wbC, dbC) { return 0.7 * wbC + 0.3 * dbC; }
-
-  // NWS wind chill (°F, wind in mph). Defined only for T ≤ 50 °F and wind > 3 mph.
-  function windChillF(Tf, mph) {
-    if (!isFinite(Tf) || !isFinite(mph) || Tf > 50 || mph <= 3) return null;
-    var w = Math.pow(mph, 0.16);
-    return 35.74 + 0.6215 * Tf - 35.75 * w + 0.4275 * Tf * w;
-  }
 
   /* ---------- unit conversions ---------- */
 
@@ -119,7 +122,6 @@
     stullValid: stullValid,
     heatStress: heatStress,
     wbgtShade: wbgtShade,
-    windChillF: windChillF,
     cToF: cToF,
     fToC: fToC,
     deltaCToF: deltaCToF,

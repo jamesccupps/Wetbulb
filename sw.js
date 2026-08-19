@@ -7,7 +7,7 @@
    a build step. Bumping VERSION forces an immediate full refresh. */
 'use strict';
 
-var VERSION = 'wetbulb-v1';
+var VERSION = 'wetbulb-v2';
 var SHELL = [
   './', './index.html', './css/styles.css',
   './js/psychro.js', './js/app.js',
@@ -28,7 +28,17 @@ self.addEventListener('activate', function (e) {
   );
 });
 
-function put(req, res) { if (res && res.ok) caches.open(VERSION).then(function (c) { c.put(req, res); }); }
+function put(req, res) {
+  if (!res || !res.ok) return Promise.resolve();
+  return caches.open(VERSION).then(function (c) { return c.put(req, res); });
+}
+
+// Last resort so respondWith() always settles with a real Response. Resolving it
+// with undefined (cold cache + offline) surfaces as an opaque network error with
+// no diagnostic, which is worse than an explicit one.
+function offlineResponse() {
+  return new Response('', { status: 504, statusText: 'Offline and not cached' });
+}
 
 self.addEventListener('fetch', function (e) {
   var req = e.request;
@@ -38,14 +48,29 @@ self.addEventListener('fetch', function (e) {
 
   if (req.mode === 'navigate') {                                // network-first HTML
     e.respondWith(
-      fetch(req).then(function (r) { put(req, r.clone()); return r; })
-        .catch(function () { return caches.match(req).then(function (m) { return m || caches.match('./index.html'); }); })
+      fetch(req).then(function (r) {
+        e.waitUntil(put(req, r.clone()));
+        return r;
+      }).catch(function () {
+        return caches.match(req).then(function (m) {
+          return m || caches.match('./index.html').then(function (i) { return i || offlineResponse(); });
+        });
+      })
     );
     return;
   }
   e.respondWith(                                                // stale-while-revalidate assets
     caches.match(req).then(function (m) {
-      var net = fetch(req).then(function (r) { put(req, r.clone()); return r; }).catch(function () { return m; });
+      var net = fetch(req).then(function (r) {
+        return put(req, r.clone()).then(function () { return r; });
+      }).catch(function () { return m || offlineResponse(); });
+      // Hold the SW alive for the background refresh. This has to be registered
+      // here, while respondWith's promise is still pending and the event is
+      // therefore still active — moving it inside net's .then() would run after
+      // respondWith already settled with the cached copy and throw
+      // InvalidStateError. Without it the worker can be killed the moment the
+      // cached copy is handed back, so a redeploy never self-heals.
+      e.waitUntil(net);
       return m || net;                                         // cache now, refresh for next load
     })
   );
