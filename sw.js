@@ -7,7 +7,7 @@
    a build step. Bumping VERSION forces an immediate full refresh. */
 'use strict';
 
-var VERSION = 'wetbulb-v2';
+var VERSION = 'wetbulb-v3';
 var SHELL = [
   './', './index.html', './css/styles.css',
   './js/psychro.js', './js/app.js',
@@ -16,7 +16,15 @@ var SHELL = [
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
-    caches.open(VERSION).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); })
+    caches.open(VERSION).then(function (c) {
+      // cache:'reload' is load-bearing. A plain addAll() is allowed to be served
+      // from the browser's HTTP cache, and Pages sets max-age=600 — so a version
+      // bump published within 10 minutes of a visitor's last load would fill the
+      // NEW cache with the OLD bytes and then serve them cache-first forever.
+      // Forcing the network here is the only thing that makes bumping VERSION
+      // mean what it says.
+      return c.addAll(SHELL.map(function (u) { return new Request(u, { cache: 'reload' }); }));
+    }).then(function () { return self.skipWaiting(); })
   );
 });
 
@@ -48,7 +56,10 @@ self.addEventListener('fetch', function (e) {
 
   if (req.mode === 'navigate') {                                // network-first HTML
     e.respondWith(
-      fetch(req).then(function (r) {
+      // no-cache = always revalidate with the server (cheap 304 when unchanged).
+      // Without it "network-first" can still be answered from the HTTP cache and
+      // hand back HTML up to max-age old.
+      fetch(new Request(req.url, { cache: 'no-cache' })).then(function (r) {
         e.waitUntil(put(req, r.clone()));
         return r;
       }).catch(function () {
@@ -61,7 +72,10 @@ self.addEventListener('fetch', function (e) {
   }
   e.respondWith(                                                // stale-while-revalidate assets
     caches.match(req).then(function (m) {
-      var net = fetch(req).then(function (r) {
+      // Same reasoning as the navigate branch: revalidate against the server so
+      // the background refresh cannot be answered with the stale copy it is
+      // supposed to be replacing.
+      var net = fetch(new Request(req.url, { cache: 'no-cache' })).then(function (r) {
         return put(req, r.clone()).then(function () { return r; });
       }).catch(function () { return m || offlineResponse(); });
       // Hold the SW alive for the background refresh. This has to be registered
