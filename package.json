@@ -15,6 +15,6 @@
     "url": "https://github.com/jamesccupps/Wetbulb.git"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }

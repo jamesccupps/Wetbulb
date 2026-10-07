@@ -82,7 +82,7 @@ The psychrometric core (`js/psychro.js`) and the geocoder result selector (`js/g
 node --test          # or: npm test
 ```
 
-CI runs the suite on Node 18/20/22 via GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+CI runs the suite on Node 20/22/24 via GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 ## Deploy to GitHub Pages
 
