@@ -289,7 +289,7 @@ function render() {
   var wbgtC = P.wbgtShade(c.wbC, c.Tc);
   el.wbgtLine.hidden = false;
   el.wbgtLine.innerHTML = 'Estimated <strong>shade WBGT ≈ ' + t1(wbgtC) + '</strong> (0.7·wet-bulb + 0.3·dry-bulb). ' +
-    'This is thermodynamic wet-bulb, <em>not</em> a measured WBGT — OSHA/ACGIH heat-stress limits use WBGT, which adds solar/globe load and runs several degrees higher in direct sun.';
+    'This is computed from the psychrometric wet-bulb, <em>not</em> a measured WBGT — OSHA/ACGIH heat-stress limits use WBGT, which adds solar/globe load and runs several degrees higher in direct sun.';
 
   // next-24h outlook
   if (c.fcPeak) {

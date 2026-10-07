@@ -77,6 +77,57 @@ test('Stull stays close to psychro wherever it is warm or humid', () => {
   assert.ok(maxDelta <= 1.0, `warm/humid max delta ${maxDelta.toFixed(3)} °C at ${at}`);
 });
 
+// Independent reference for the README accuracy claim: ASHRAE 2017 Fundamentals
+// ch. 1 thermodynamic wet bulb (eq. 6, 20, 33, 35) with Hyland–Wexler
+// saturation pressure. `ice` selects ASHRAE's own frost-bulb branch below 0 °C;
+// false keeps both sides on water, the convention psychro.js uses.
+function ashraeWetBulb(Tc, RH, pHpa, ice) {
+  const pws = t => {   // Pa
+    const T = t + 273.15;
+    if (ice && t <= 0.01) return Math.exp(-5.6745359e3 / T + 6.3925247 - 9.677843e-3 * T + 6.2215701e-7 * T ** 2
+      + 2.0747825e-9 * T ** 3 - 9.484024e-13 * T ** 4 + 4.1635019 * Math.log(T));
+    return Math.exp(-5.8002206e3 / T + 1.3914993 - 4.8640239e-2 * T + 4.1764768e-5 * T ** 2
+      - 1.4452093e-8 * T ** 3 + 6.5459673 * Math.log(T));
+  };
+  const p = pHpa * 100, W = pw => 0.621945 * pw / (p - pw);
+  const w = W(P.esat(Tc) * RH);   // the app's moisture state; hPa x RH% = Pa
+  const g = Tw => {
+    const ws = W(pws(Tw));
+    const wc = (!ice || Tw >= 0)
+      ? ((2501 - 2.326 * Tw) * ws - 1.006 * (Tc - Tw)) / (2501 + 1.86 * Tc - 4.186 * Tw)
+      : ((2830 - 0.24 * Tw) * ws - 1.006 * (Tc - Tw)) / (2830 + 1.86 * Tc - 2.1 * Tw);
+    return wc - w;
+  };
+  let lo = Tc - 60, hi = Tc;
+  for (let i = 0; i < 80; i++) { const m = (lo + hi) / 2; if (g(m) < 0) lo = m; else hi = m; }
+  return (lo + hi) / 2;
+}
+
+test('agrees with an independent ASHRAE thermodynamic wet bulb (README claim)', () => {
+  const scan = ice => {
+    let worst = 0, at = null, sum = 0, n = 0, low = 0;
+    for (const pH of [1013.25, 850]) for (let T = -10; T <= 45; T++) for (let RH = 10; RH <= 99; RH++) {
+      const d = P.wetBulb(T, RH, pH, P.dewpoint(T, RH)) - ashraeWetBulb(T, RH, pH, ice);
+      if (Math.abs(d) > Math.abs(worst)) { worst = d; at = `${T} °C / ${RH} % / ${pH} hPa`; }
+      low = Math.min(low, d); sum += Math.abs(d); n++;
+    }
+    return { worst, at, mean: sum / n, low };
+  };
+  // Like for like (water on both sides): small, and warm of thermodynamic as a
+  // psychrometric wet bulb should be. The few negatives are ~0.002 °C of
+  // saturation-pressure-formula noise at -10 °C / 99 %.
+  const water = scan(false);
+  assert.ok(water.worst > 0.2 && water.worst <= 0.3, `water-phase worst ${water.worst.toFixed(3)} °C`);
+  assert.equal(water.at, '45 °C / 10 % / 850 hPa');
+  assert.ok(water.mean <= 0.1, `water-phase mean ${water.mean.toFixed(3)} °C`);
+  assert.ok(water.low >= -0.005, `water-phase most negative ${water.low.toFixed(4)} °C`);
+  // Against ASHRAE's own definition, which switches to a frost bulb below 0 °C,
+  // the phase choice dominates just under freezing and the sign can flip.
+  const ice = scan(true);
+  assert.ok(ice.worst >= 0.7 && ice.worst <= 0.8, `ice-phase worst ${ice.worst.toFixed(3)} °C at ${ice.at}`);
+  assert.ok(ice.low < -0.3, `ice-phase most negative ${ice.low.toFixed(3)} °C`);
+});
+
 test('RH ≥ 100 % returns dry bulb exactly (no discontinuity artifact)', () => {
   assert.equal(P.wetBulb(25, 100, 1013.25, 25), 25);
   assert.equal(P.wetBulb(30, 101, 1013.25, 30), 30);
