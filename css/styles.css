@@ -56,7 +56,11 @@ h1 .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-sh
 .card+.card{margin-top:14px}
 
 .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-.field{flex:1 1 220px;display:flex;gap:8px}
+/* min-width:0 lets the field shrink below its children's min-content. The
+   input's min-width:0 is not enough on its own: the field's min-content still
+   counts the input's intrinsic 20-character width, which held the row at
+   ~376px and scrolled the page sideways on 360px phones. */
+.field{flex:1 1 220px;display:flex;gap:8px;min-width:0}
 input[type=text],input[type=number]{
   background:var(--panel-2);border:1px solid var(--border);color:var(--text);
   border-radius:8px;font-size:15px;outline:none;
