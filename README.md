@@ -111,14 +111,28 @@ assets/                  icon + social card
 
 ## Changelog
 
-**Unreleased**
+**1.2.0** — Review fixes.
 
 *Correctness*
 - **City qualifiers resolve to the place you typed.** The qualifier after the comma was substring-matched against the state/province and country name, so a two-letter state code hit whatever happened to contain those letters — or nothing, and the API's first result was used. `Scarborough, ME` (the input's own placeholder example) resolved to Scarborough, **St Kitts & Nevis** ("Saint James Windward" contains "ME"; "Maine" does not), reporting a 76 °F wet-bulb for a 50 °F day. `Portland, ME` went to Oregon, `Augusta, GA` to Michigan, `Kansas City, KS` to Missouri. Qualifiers now match whole-field in tiers: US state code → country code (plus `UK`, `USA`) → full state/province/country name → 3+ letter prefix.
 - **Breaking (input):** a qualifier that matches none of the candidates is now an error instead of a silent fallback to the first result. Non-US regional abbreviations such as `Sydney, NSW`, which 1.1.0 only "got right" because the fallback happened to land there, now need `Sydney, Australia` or `Sydney, AU`.
+- **The 3 h pressure trend is in a pressure unit.** It was passed through the °C→°F *temperature*-delta conversion, so in the default °F mode it printed hPa × 1.8 with no unit, right after "inHg": a 2.5 hPa fall read as "▼ 4.5/3h" — apparently 4.5 inHg. It now follows the unit toggle like the manual calculator (`▼ 0.07 inHg/3h` / `▼ 2.5 hPa/3h`), and the pressure cell spans two grid columns from 320 px so the explicit unit still fits on one line on phones.
+- **The live wet-bulb is solved from the dew point, not the whole-percent RH.** Open-Meteo reports RH as an integer but dew point to 0.1 °C (same Magnus coefficients as `psychro.js`). Over T −10…40 °C × RH 20–100 %, the rounding error drops from ≤ 0.16 °C to ≤ 0.04 °C, and the reading can no longer land 0.1 °F below the dew point shown beside it (0.14 % of states, all near saturation). New `Psychro.rhFromDew()`; the Stull cross-check uses the same input.
 
-*Structure*
-- Geocoder result selection moved out of `app.js` into `js/geo.js` (UMD, like the core) with a `node:test` suite over real Open-Meteo responses. Service-worker cache bumped to `wetbulb-v4` for the new shell file.
+*Privacy*
+- **Pinned GPS sites keep their 2 dp rounding.** Clicking a pinned GPS chip dropped its `gps` flag, so the link went back to 4 dp (~11 m) and `wb_last` persisted the fix as an ordinary place — undoing the 1.1.0 rounding on every later load. A fix already demoted that way stays at 4 dp until it is pinned again via Locate.
+
+*Layout*
+- The search row no longer scrolls the page sideways on phones: the field could not shrink below the text input's intrinsic width, holding the document at 376 px (16 px of horizontal scroll on a 360 px Android).
+
+*Docs & tests*
+- The ASHRAE accuracy claim now states its phase convention and the numbers it pins: worst 0.27 °C water-phase on both sides, 0.76 °C against ASHRAE's ice-phase definition just below freezing. The reference solver lives in the test suite.
+- The shade-WBGT note no longer calls the value "thermodynamic" wet-bulb; it is psychrometric.
+- Geocoder result selection moved out of `app.js` into `js/geo.js` (UMD, like the core) with a `node:test` suite over real Open-Meteo responses.
+
+*Build*
+- CI matrix Node 18/20/22 → 20/22/24 (18 and 20 are end-of-life), `actions/checkout` and `actions/setup-node` v4 → v7, `engines` → `>=20`.
+- Service-worker cache → `wetbulb-v4`: new shell file, and `app.js` now depends on `Psychro.rhFromDew`, so a mixed old/new shell must not be served.
 
 **1.1.0** — Audit fixes.
 
