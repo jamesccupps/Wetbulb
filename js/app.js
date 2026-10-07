@@ -321,9 +321,13 @@ function render() {
   updateTower();
   drawChart();
 }
+// d is a pressure change in hPa over ~3 h. It must not go through dDelta(),
+// which is a temperature-delta conversion: that printed hPa x 1.8 right after
+// "inHg", so a 2.5 hPa fall read as 4.5 inHg. Follows the unit toggle like
+// the manual calculator, and names the unit since it sits after two others.
 function trendText(d) {
   if (!finiteNum(d)) return '';
-  var mag = dDelta(Math.abs(d)).toFixed(1);
+  var mag = presFromHpa(Math.abs(d)).toFixed(unit === 'F' ? 2 : 1) + ' ' + presUnit();
   if (d > 0.4) return '▲ ' + mag + '/3h';
   if (d < -0.4) return '▼ ' + mag + '/3h';
   return 'steady';

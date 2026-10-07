@@ -122,9 +122,12 @@ select{background:var(--panel-2);border:1px solid var(--border);color:var(--text
 .metric .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
 .metric .v{font-size:22px;font-weight:600;margin-top:3px}
 .metric .u{font-size:12px;color:var(--muted);font-weight:400}
-/* pressure carries three values (hPa, inHg, 3h trend) — give it a wider cell
-   once there is more than one column, so it does not wrap to three lines */
-@media (min-width:560px){ .metric.span2{grid-column:span 2} }
+/* pressure carries three values (hPa, inHg, 3h trend with its unit) — give it
+   a wider cell whenever there is more than one column, phones included, or it
+   wraps to three lines. Two 120px columns + 10px gap need 250px of content;
+   body + card padding take 66px, so two columns exist from a 316px viewport.
+   Below that there is one column and span 2 would add an overflowing one. */
+@media (min-width:320px){ .metric.span2{grid-column:span 2} }
 
 .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;background:color-mix(in srgb,var(--text) 8%,transparent)}
 .badge .pip{width:8px;height:8px;border-radius:50%;background:currentColor}
