@@ -4,6 +4,7 @@
 (function () {
 'use strict';
 var P = window.Psychro;
+var G = window.Geo;
 
 /* ---------- element cache ---------- */
 var IDS = ['locInput','goBtn','gpsBtn','unitSeg','themeSeg','refreshSel','chips','recentList',
@@ -122,29 +123,13 @@ function geocodeZip(zip, signal) {
   });
 }
 function geocodeCity(q, signal) {
-  var parts = q.split(',').map(function (x) { return x.trim(); });
-  var name = parts[0];
-  return fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(name) + '&count=10&language=en&format=json', { signal: signal })
+  var pq = G.parseQuery(q);
+  return fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(pq.name) + '&count=10&language=en&format=json', { signal: signal })
     .then(function (r) { return r.json(); })
     .then(function (j) {
       if (!j.results || !j.results.length) throw new Error('No match for "' + q + '".');
-      var res = j.results;
-      if (parts[1]) {
-        var qual = parts[1].toUpperCase();
-        var filt = res.filter(function (x) {
-          return (x.admin1 && x.admin1.toUpperCase().indexOf(qual) >= 0) ||
-                 (x.country_code && x.country_code.toUpperCase() === qual) ||
-                 (x.country && x.country.toUpperCase().indexOf(qual) >= 0);
-        });
-        if (filt.length) res = filt;
-      } else {
-        res.sort(function (a, b) {
-          var au = a.country_code === 'US' ? 0 : 1, bu = b.country_code === 'US' ? 0 : 1;
-          if (au !== bu) return au - bu;
-          return (b.population || 0) - (a.population || 0);
-        });
-      }
-      var p = res[0];
+      var p = G.pickResult(j.results, pq.qualifier);
+      if (!p) throw new Error('No "' + pq.name + '" found in "' + pq.qualifier + '". Try the full state or country name, or its 2-letter code.');
       var label = p.name + (p.admin1 ? ', ' + p.admin1 : '') + (p.country_code && p.country_code !== 'US' ? ' (' + p.country_code + ')' : '');
       return { lat: p.latitude, lon: p.longitude, name: label, detail: p.country || '' };
     });

@@ -15,7 +15,7 @@ Real-time, **pressure-corrected wet-bulb temperature** by ZIP, city, or GPS — 
 
 ## Features
 
-- **Live conditions** by US ZIP, city (worldwide), or one-tap GPS.
+- **Live conditions** by US ZIP, city (worldwide), or one-tap GPS. A city takes an optional qualifier after a comma — a US state code or name (`Portland, ME`, `Portland, Maine`), a country code or name (`London, GB`, `London, UK`, `Toronto, Canada`), or a 3+ letter prefix of either (`Toronto, Ont`). Two-letter codes are read as a US state first, then as a country. A qualifier that matches nothing is reported as an error rather than guessed.
 - **Pressure-corrected psychrometric wet-bulb** — solved iteratively, not a fixed-pressure fit, and cross-checked against the Stull (2011) approximation.
 - **Cooling-tower reference** — theoretical minimum cold-water temperature (= ambient wet-bulb), achievable leaving-water temperature at your design *approach*, and margin-vs-**site design wet-bulb** (persisted per location).
 - **Shade-WBGT estimate** with an honest note that it is *not* a measured WBGT (see [Accuracy & limitations](#accuracy--limitations)).
@@ -76,7 +76,7 @@ python -m http.server 8000
 
 ## Tests & CI
 
-The psychrometric core (`js/psychro.js`) is a UMD module: the same file powers the browser **and** is imported by Node's built-in test runner — no bundler, no dev dependencies.
+The psychrometric core (`js/psychro.js`) and the geocoder result selector (`js/geo.js`) are UMD modules: the same files power the browser **and** are imported by Node's built-in test runner — no bundler, no dev dependencies. The geocoder tests run against real Open-Meteo responses in `test/fixtures/geocode.json`.
 
 ```bash
 node --test          # or: npm test
@@ -98,8 +98,11 @@ For rich link unfurls, upload `assets/social-card.svg` (or a PNG export of it) a
 index.html               markup only
 css/styles.css           styles + light/dark theming
 js/psychro.js            pure psychrometric core (browser + Node, UMD)
+js/geo.js                geocoder result selection, "City, ST" qualifiers (browser + Node, UMD)
 js/app.js                UI: fetch, render, chart, persistence, events
 test/psychro.test.js     node:test suite for the core
+test/geo.test.js         node:test suite for geocoder selection
+test/fixtures/           real geocoder responses used by the tests
 sw.js                    service worker (offline shell; APIs stay network-only)
 manifest.webmanifest     PWA manifest
 assets/                  icon + social card
@@ -107,6 +110,15 @@ assets/                  icon + social card
 ```
 
 ## Changelog
+
+**Unreleased**
+
+*Correctness*
+- **City qualifiers resolve to the place you typed.** The qualifier after the comma was substring-matched against the state/province and country name, so a two-letter state code hit whatever happened to contain those letters — or nothing, and the API's first result was used. `Scarborough, ME` (the input's own placeholder example) resolved to Scarborough, **St Kitts & Nevis** ("Saint James Windward" contains "ME"; "Maine" does not), reporting a 76 °F wet-bulb for a 50 °F day. `Portland, ME` went to Oregon, `Augusta, GA` to Michigan, `Kansas City, KS` to Missouri. Qualifiers now match whole-field in tiers: US state code → country code (plus `UK`, `USA`) → full state/province/country name → 3+ letter prefix.
+- **Breaking (input):** a qualifier that matches none of the candidates is now an error instead of a silent fallback to the first result. Non-US regional abbreviations such as `Sydney, NSW`, which 1.1.0 only "got right" because the fallback happened to land there, now need `Sydney, Australia` or `Sydney, AU`.
+
+*Structure*
+- Geocoder result selection moved out of `app.js` into `js/geo.js` (UMD, like the core) with a `node:test` suite over real Open-Meteo responses. Service-worker cache bumped to `wetbulb-v4` for the new shell file.
 
 **1.1.0** — Audit fixes.
 
