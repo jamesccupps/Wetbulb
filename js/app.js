@@ -534,7 +534,9 @@ function renderChips() {
     lbl.type = 'button';
     lbl.style.cssText = 'border:none;background:transparent;color:inherit;cursor:pointer;font:inherit;padding:0';
     lbl.textContent = s.name;
-    lbl.onclick = function () { run({ lat: s.lat, lon: s.lon, name: s.name, detail: s.detail, query: s.query }); };
+    // gps must survive the round trip: shareURL() keys its 2 dp rounding off it,
+    // and saveLast() would otherwise persist the fix as an ordinary place.
+    lbl.onclick = function () { run({ lat: s.lat, lon: s.lon, name: s.name, detail: s.detail, query: s.query, gps: !!s.gps }); };
     var x = document.createElement('button');
     x.type = 'button'; x.className = 'x'; x.setAttribute('aria-label', 'Remove ' + s.name); x.textContent = '×';
     x.onclick = function (e) { e.stopPropagation(); removeSite(placeKey(s)); };
