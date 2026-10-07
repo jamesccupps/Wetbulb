@@ -120,6 +120,38 @@ test('dewpoint is a consistent inverse of esat, and never exceeds dry bulb', () 
   }
 });
 
+test('rhFromDew is the exact inverse of dewpoint, capped at 100 %', () => {
+  for (let Tc = -15; Tc <= 45; Tc += 5) {
+    for (let RH = 5; RH <= 99; RH += 8) {
+      close(P.rhFromDew(Tc, P.dewpoint(Tc, RH)), RH, 1e-9, `round trip ${Tc}/${RH}`);
+    }
+  }
+  assert.equal(P.rhFromDew(20, 20), 100);
+  assert.equal(P.rhFromDew(20, 20.1), 100);   // a rounded dew point can sit above dry bulb
+});
+
+test('solving from the reported dew point beats the whole-percent RH', () => {
+  // Model Open-Meteo's output quantisation — T and dew point to 0.1 °C, RH to a
+  // whole percent — and measure each input path against the unrounded truth.
+  const r1 = x => Math.round(x * 10) / 10;
+  let maxRh = 0, maxDew = 0, below = null;
+  for (let Ti = -100; Ti <= 400; Ti += 5) {
+    const T = Ti / 10;
+    for (let RHt = 20; RHt < 100; RHt += 0.1) {
+      const truth = P.wetBulb(T, RHt, 1013.25, P.dewpoint(T, RHt));
+      const Td = r1(P.dewpoint(T, RHt));
+      const viaRh = P.wetBulb(T, Math.round(RHt), 1013.25, Td);
+      const viaDew = P.wetBulb(T, P.rhFromDew(T, Td), 1013.25, Td);
+      maxRh = Math.max(maxRh, Math.abs(viaRh - truth));
+      maxDew = Math.max(maxDew, Math.abs(viaDew - truth));
+      if (viaDew < Td - 1e-9 && !below) below = `${T} °C / ${RHt.toFixed(1)} %`;
+    }
+  }
+  assert.ok(maxDew <= 0.05, `dew-point path max error ${maxDew.toFixed(3)} °C`);
+  assert.ok(maxRh >= 2 * maxDew, `RH path ${maxRh.toFixed(3)} °C vs dew path ${maxDew.toFixed(3)} °C`);
+  assert.equal(below, null, `wet bulb below the reported dew point at ${below}`);
+});
+
 test('stullValid gates the published envelope', () => {
   assert.ok(P.stullValid(20, 50));
   assert.ok(!P.stullValid(20, 3));    // RH below 5

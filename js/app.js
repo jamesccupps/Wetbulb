@@ -190,8 +190,9 @@ function buildSeries(w) {
     if (!finiteNum(tC) || !finiteNum(rh)) continue;
     rh = Math.max(0, Math.min(100, rh));
     var pr = finiteNum(sp[i]) ? sp[i] : 1013.25;
-    var wbC = P.wetBulb(tC, rh, pr, dp[i]);
-    var tdC = finiteNum(dp[i]) ? dp[i] : P.dewpoint(tC, rh);
+    var hasDp = finiteNum(dp[i]);
+    var wbC = P.wetBulb(tC, hasDp ? P.rhFromDew(tC, dp[i]) : rh, pr, dp[i]);
+    var tdC = hasDp ? dp[i] : P.dewpoint(tC, rh);
     out.push({ time: h.time[i], tC: tC, wbC: wbC, tdC: tdC, rh: rh, pr: pr, fc: i > idx, now: i === idx });
   }
   return out;
@@ -218,8 +219,11 @@ function computeAndRender(place, w) {
     return;
   }
   RH = Math.max(0, Math.min(100, RH));   // models can report slightly >100% at saturation
-  var wbC = P.wetBulb(Tc, RH, Pv, Tdew);
-  var wbStull = P.stullValid(Tc, RH) ? P.wetBulbStull(Tc, RH) : NaN;
+  // Solve from the 0.1 °C dew point, not the whole-percent RH (see rhFromDew).
+  // Stull gets the same input so its Δ measures the method, not the rounding.
+  var rhW = finiteNum(Tdew) ? P.rhFromDew(Tc, Tdew) : RH;
+  var wbC = P.wetBulb(Tc, rhW, Pv, Tdew);
+  var wbStull = P.stullValid(Tc, rhW) ? P.wetBulbStull(Tc, rhW) : NaN;
   current = {
     place: place, w: w, Tc: Tc, RH: RH, Tdew: Tdew, P: Pv, wbC: wbC, wbStull: wbStull,
     apparent: c.apparent_temperature, windSpd: c.wind_speed_10m, windDir: c.wind_direction_10m,
@@ -296,7 +300,8 @@ function render() {
   } else { el.outlook.hidden = true; }
 
   // method note
-  var note = 'Computed from air temp ' + t1(c.Tc) + ', RH ' + Math.round(c.RH) + '%, and station pressure ' +
+  var note = 'Computed from air temp ' + t1(c.Tc) + ', ' +
+    (finiteNum(c.Tdew) ? 'dew point ' + t1(c.Tdew) : 'RH ' + Math.round(c.RH) + '%') + ', and station pressure ' +
     (finiteNum(c.P) ? Math.round(c.P) + ' hPa' : 'sea-level default') + '. ';
   if (finiteNum(c.wbStull)) {
     var dStull = Math.abs(c.wbC - c.wbStull);

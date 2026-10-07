@@ -38,7 +38,7 @@ e(T, RH) = es(Tw) − γ · (T − Tw)
 where
 
 - `es(·)` is the saturation vapour pressure over water, using the **Alduchov & Eskridge (1996)** coefficients: `es(T) = 6.1094 · exp(17.625·T / (243.04 + T))` hPa;
-- `e = es(T) · RH/100` is the actual vapour pressure;
+- `e` is the actual vapour pressure: `es(Td)` from the reported dew point when there is one, otherwise `es(T) · RH/100`. Open-Meteo reports dew point to 0.1 °C but RH only to a whole percent (both computed server-side with the same Magnus coefficients as here), so solving from the dew point cuts the rounding error in the wet bulb from ≈ 0.16 °C to ≈ 0.04 °C and keeps it from landing below the displayed dew point near saturation. The manual calculator uses the RH you type;
 - `γ = 6.65 × 10⁻⁴ · P` (hPa/°C) is the psychrometer constant at the **actual station pressure `P`** — this is the pressure correction, equivalent to the standard `0.665 × 10⁻³ · P[kPa]`.
 
 Because `Tw` always lies between the dew point and the dry-bulb temperature, the root is bracketed and solved by bisection (60 iterations → sub-millidegree convergence). Dew point uses the exact Magnus inverse of the same `es` coefficients, so `esat`, dew point and the wet-bulb solve are all on one water phase (correct for a supercooled-wick wet-bulb below 0 °C, and consistent with Open-Meteo's over-water dew point).
