@@ -17,7 +17,7 @@
   <g transform="translate(92,340)" font-size="26" fill="#8b9aa8">
     <circle cx="10" cy="-8" r="8" fill="#38bdf8"/><text x="30" y="0">Cooling-tower approach reference</text>
     <circle cx="10" cy="42" r="8" fill="#fbbf24"/><text x="30" y="50">24-hour trend &amp; next-24h forecast peak</text>
-    <circle cx="10" cy="92" r="8" fill="#4ade80"/><text x="30" y="100">Offline manual calculator &middot; zero dependencies</text>
+    <circle cx="10" cy="92" r="8" fill="#4ade80"/><text x="30" y="100">Offline manual calculator &#183; zero dependencies</text>
   </g>
-  <text x="92" y="560" font-size="24" fill="#556575">jamesccupps.github.io/Wetbulb &middot; Data &copy; Open-Meteo</text>
+  <text x="92" y="560" font-size="24" fill="#556575">jamesccupps.github.io/Wetbulb &#183; Data &#169; Open-Meteo</text>
 </svg>
