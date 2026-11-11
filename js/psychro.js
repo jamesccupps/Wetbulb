@@ -39,7 +39,7 @@
   // RH (%) implied by a dew point — the exact inverse of dewpoint(), capped at
   // 100. Prefer it to a reported RH when a source gives both: Open-Meteo rounds
   // RH to a whole percent but dew point to 0.1 °C, computed with these same
-  // Magnus coefficients, so the dew point pins the vapour pressure ~3x tighter
+  // Magnus coefficients, so the dew point pins the vapor pressure ~3x tighter
   // and the wet bulb can no longer land below the dew point shown beside it.
   function rhFromDew(Tc, Tdew) {
     return Math.min(100, 100 * esat(Tdew) / esat(Tc));

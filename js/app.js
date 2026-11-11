@@ -64,7 +64,7 @@ function compass(deg) {
   return dirs[Math.round(deg / 22.5) % 16];
 }
 // Hour label with day context. The forecast window is at most +24 h, so a peak
-// can only land today or tomorrow — anything past midnight is labelled
+// can only land today or tomorrow — anything past midnight is labeled
 // explicitly, since a bare "11 AM" otherwise reads as this morning.
 function fmtHour(t, nowT) {
   var hh = parseInt(t.substr(11, 2), 10);

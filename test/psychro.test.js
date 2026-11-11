@@ -182,7 +182,7 @@ test('rhFromDew is the exact inverse of dewpoint, capped at 100 %', () => {
 });
 
 test('solving from the reported dew point beats the whole-percent RH', () => {
-  // Model Open-Meteo's output quantisation — T and dew point to 0.1 °C, RH to a
+  // Model Open-Meteo's output quantization — T and dew point to 0.1 °C, RH to a
   // whole percent — and measure each input path against the unrounded truth.
   const r1 = x => Math.round(x * 10) / 10;
   let maxRh = 0, maxDew = 0, below = null;
