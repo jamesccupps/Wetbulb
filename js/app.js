@@ -23,6 +23,7 @@ var current = null;      // last payload + computed values
 var refreshTimer = null;
 var inFlight = null;     // AbortController for the active request
 var timedOut = false;
+var REQUEST_TIMEOUT_MS = 12000;   // each geocoder lookup and each weather request
 
 /* ---------- helpers ---------- */
 function finiteNum(v) { return typeof v === 'number' && isFinite(v); }
@@ -160,7 +161,7 @@ function run(place) {
   var ctrl = new AbortController();
   inFlight = ctrl;
   timedOut = false;
-  var to = setTimeout(function () { timedOut = true; ctrl.abort(); }, 12000);
+  var to = setTimeout(function () { timedOut = true; ctrl.abort(); }, REQUEST_TIMEOUT_MS);
   loading('Fetching current conditions for ' + place.name + '…');
   return fetchWeather(place.lat, place.lon, ctrl.signal).then(function (w) {
     clearTimeout(to);
@@ -679,13 +680,24 @@ function resolveAndRun(q) {
   if (inFlight) inFlight.abort();
   var ctrl = new AbortController();
   inFlight = ctrl;
+  // Same budget as the weather request. Without it, a geocoder that accepts
+  // the connection and never answers left "Looking up…" spinning until the
+  // browser gave up, which can take minutes. The flag is per call, so a lookup
+  // superseded by a newer one is not reported as a timeout.
+  var expired = false;
+  var to = setTimeout(function () { expired = true; ctrl.abort(); }, REQUEST_TIMEOUT_MS);
   loading('Looking up "' + q + '"…');
   var geocode = /^\d{5}$/.test(q) ? geocodeZip(q, ctrl.signal) : geocodeCity(q, ctrl.signal);
   return geocode.then(function (place) {
+    clearTimeout(to);
     place.query = q;
     run(place);
   }).catch(function (e) {
-    if (e && e.name === 'AbortError') return;
+    clearTimeout(to);
+    if (e && e.name === 'AbortError') {
+      if (expired) showError(new Error('Timed out looking up "' + q + '". Try again.'));
+      return;
+    }
     showError(e);
   });
 }
