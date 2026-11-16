@@ -112,6 +112,18 @@ assets/                  icon + social card
 
 ## Changelog
 
+**Unreleased** — Fixes from an outside review (2026-11-15). None change a reading; they cover how the page copes with bad input.
+
+*Robustness*
+- **Stored values are shape-checked when loaded.** A non-array `wb_recent` stopped the page at startup; a stored place with a non-string name broke the saved-site buttons and the CSV download; a non-object `wb_designwb` made every keystroke in the design wet-bulb field throw. Every site on `jamesccupps.github.io` shares this origin's storage, so these values are read defensively.
+- **Geocoder replies are checked before use.** The HTTP status is read before the body, so a rate-limited city lookup (429) no longer reports a real city as "No match", and a ZIP lookup that fails (e.g. 503) no longer says "not found". A reply without a usable place gives a clear message instead of a raw JavaScript error, and no weather request goes out with `latitude=NaN`.
+- **City and ZIP lookups time out after 12 s,** like the weather request. A geocoder that accepted the connection and never answered left "Looking up…" spinning indefinitely.
+
+*Tests & build*
+- `test/sw.test.js` checks that the service worker's `SHELL` list and the repo agree in both directions; a missing file silently fails the offline install.
+- CI runs with a read-only token (`permissions: contents: read`) and does not persist credentials.
+- Service-worker cache → `wetbulb-v5` (`app.js` now depends on new `geo.js` exports).
+
 **1.2.0** — Review fixes.
 
 *Correctness*
