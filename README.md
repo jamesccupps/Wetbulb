@@ -112,7 +112,7 @@ assets/                  icon + social card
 
 ## Changelog
 
-**Unreleased** — Fixes from an outside review (2026-11-15). None change a reading; they cover how the page copes with bad input.
+**1.2.1** — Fixes from an outside review (2026-11-15). None change a reading; they cover how the page copes with bad input.
 
 *Robustness*
 - **Stored values are shape-checked when loaded.** A non-array `wb_recent` stopped the page at startup; a stored place with a non-string name broke the saved-site buttons and the CSV download; a non-object `wb_designwb` made every keystroke in the design wet-bulb field throw. Every site on `jamesccupps.github.io` shares this origin's storage, so these values are read defensively.
