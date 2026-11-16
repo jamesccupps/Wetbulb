@@ -101,7 +101,8 @@ js/psychro.js            pure psychrometric core (browser + Node, UMD)
 js/geo.js                geocoder result selection, "City, ST" qualifiers (browser + Node, UMD)
 js/app.js                UI: fetch, render, chart, persistence, events
 test/psychro.test.js     node:test suite for the core
-test/geo.test.js         node:test suite for geocoder selection
+test/geo.test.js         node:test suite for geocoder selection and reply checks
+test/sw.test.js          SHELL list matches the repo and the page (offline install)
 test/fixtures/           real geocoder responses used by the tests
 sw.js                    service worker (offline shell; APIs stay network-only)
 manifest.webmanifest     PWA manifest
