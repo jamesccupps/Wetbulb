@@ -2,8 +2,9 @@
  * geo.js — geocoder result selection for the Wet-Bulb Calculator.
  *
  * Pure and dependency-free, UMD like psychro.js so the same source runs in the
- * browser (window.Geo) and under node:test. The network call stays in app.js;
- * this only decides which of the geocoder's candidates "Portland, ME" means.
+ * browser (window.Geo) and under node:test. The network calls stay in app.js;
+ * this decides which of the geocoder's candidates "Portland, ME" means, and
+ * whether a reply holds a usable place at all.
  */
 (function (root, factory) {
   'use strict';
@@ -36,6 +37,48 @@
 
   function own(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
   function norm(s) { return String(s == null ? '' : s).replace(/\./g, '').trim().toUpperCase(); }
+  function isObj(x) { return !!x && typeof x === 'object'; }
+  function isText(s) { return typeof s === 'string' && s.trim() !== ''; }
+  function finiteNum(v) { return typeof v === 'number' && isFinite(v); }
+  // Strict string -> number: Number('') is 0 and parseFloat('43abc') is 43,
+  // both of which would put a wrong place on the map instead of failing.
+  function toNum(v) { return typeof v === 'number' ? v : (isText(v) ? Number(v) : NaN); }
+
+  // A place is only usable if lat/lon are real numbers in range. isFinite()
+  // alone is not enough: it coerces, so a stringified "43.66" out of
+  // localStorage would pass and then throw in placeKey()'s toFixed().
+  function validPlace(p) {
+    return isObj(p) && finiteNum(p.lat) && finiteNum(p.lon) &&
+      p.lat >= -90 && p.lat <= 90 && p.lon >= -180 && p.lon <= 180;
+  }
+
+  // Zippopotam reply -> place, or null when it holds no usable one. Its
+  // coordinates arrive as strings ("43.6606"). Unchecked, a reply without
+  // `places` surfaced as a raw TypeError and a non-numeric latitude went out
+  // to the weather service as latitude=NaN.
+  function placeFromZip(j, zip) {
+    var p = isObj(j) && Array.isArray(j.places) ? j.places[0] : null;
+    if (!isObj(p)) return null;
+    var place = {
+      lat: toNum(p.latitude), lon: toNum(p.longitude),
+      name: [p['place name'], p['state abbreviation']].filter(isText).join(', ') || 'ZIP ' + zip,
+      detail: 'ZIP ' + zip
+    };
+    return validPlace(place) ? place : null;
+  }
+
+  // Open-Meteo geocoding result -> place with the label the UI shows, or null
+  // when it has no name or no usable coordinates.
+  function placeFromResult(r) {
+    if (!isObj(r) || !isText(r.name)) return null;
+    var place = {
+      lat: r.latitude, lon: r.longitude,
+      name: r.name + (isText(r.admin1) ? ', ' + r.admin1 : '') +
+        (isText(r.country_code) && r.country_code !== 'US' ? ' (' + r.country_code + ')' : ''),
+      detail: isText(r.country) ? r.country : ''
+    };
+    return validPlace(place) ? place : null;
+  }
 
   // "Portland, ME" -> { name: 'Portland', qualifier: 'ME' }. Anything after a
   // second comma is ignored.
@@ -64,7 +107,8 @@
   // California, but "Toronto, CA" still reaches Canada because no Toronto in
   // California is among the candidates.
   function pickResult(results, qualifier) {
-    if (!results || !results.length) return null;
+    results = Array.isArray(results) ? results.filter(isObj) : [];
+    if (!results.length) return null;
     var q = norm(qualifier);
     if (!q) return results.slice().sort(rank)[0];
     var state = own(US_STATES, q) ? US_STATES[q].toUpperCase() : null;
@@ -87,6 +131,9 @@
   return {
     US_STATES: US_STATES,
     parseQuery: parseQuery,
-    pickResult: pickResult
+    pickResult: pickResult,
+    validPlace: validPlace,
+    placeFromZip: placeFromZip,
+    placeFromResult: placeFromResult
   };
 });

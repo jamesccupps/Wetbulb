@@ -26,13 +26,7 @@ var timedOut = false;
 
 /* ---------- helpers ---------- */
 function finiteNum(v) { return typeof v === 'number' && isFinite(v); }
-// A place is only usable if lat/lon are real numbers in range. Note isFinite()
-// alone is not enough: it coerces, so a stringified "43.66" out of localStorage
-// would pass and then throw in placeKey()'s toFixed().
-function validPlace(p) {
-  return !!p && finiteNum(p.lat) && finiteNum(p.lon) &&
-    p.lat >= -90 && p.lat <= 90 && p.lon >= -180 && p.lon <= 180;
-}
+var validPlace = G.validPlace;   // shared with the geocoder reply checks
 function dC(c) { return unit === 'F' ? P.cToF(c) : c; }            // Celsius value -> display
 function dDelta(c) { return unit === 'F' ? P.deltaCToF(c) : c; }   // Celsius delta -> display
 function t1(c) { return finiteNum(c) ? dC(c).toFixed(1) + '°' + unit : '—'; }
@@ -113,25 +107,39 @@ function showError(e) {
 }
 
 /* ---------- geocoding ---------- */
+// Status first, then the body. Unchecked, a 429 with Open-Meteo's JSON error
+// body read as 'No match for "Portland, ME"' (a real city made to look
+// nonexistent), and an HTML error page surfaced as a raw JSON parse error.
+// An abort while the body is read stays an AbortError, so a superseded or
+// timed-out lookup is not reported as a bad reply.
+function readReply(r, what) {
+  if (!r.ok) throw new Error(what + ' failed (HTTP ' + r.status + '). Try again in a minute.');
+  return r.json().catch(function (e) {
+    if (e && e.name === 'AbortError') throw e;
+    throw new Error(what + ' sent an unreadable reply. Try again in a minute.');
+  });
+}
 function geocodeZip(zip, signal) {
   return fetch('https://api.zippopotam.us/us/' + zip, { signal: signal }).then(function (r) {
-    if (!r.ok) throw new Error('ZIP ' + zip + ' not found.');
-    return r.json();
+    if (r.status === 404) throw new Error('ZIP ' + zip + ' not found.');
+    return readReply(r, 'ZIP lookup');
   }).then(function (j) {
-    var p = j.places[0];
-    return { lat: +p.latitude, lon: +p.longitude, name: p['place name'] + ', ' + p['state abbreviation'], detail: 'ZIP ' + zip };
+    var place = G.placeFromZip(j, zip);
+    if (!place) throw new Error('ZIP ' + zip + ' came back without a usable location.');
+    return place;
   });
 }
 function geocodeCity(q, signal) {
   var pq = G.parseQuery(q);
   return fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(pq.name) + '&count=10&language=en&format=json', { signal: signal })
-    .then(function (r) { return r.json(); })
+    .then(function (r) { return readReply(r, 'City lookup'); })
     .then(function (j) {
-      if (!j.results || !j.results.length) throw new Error('No match for "' + q + '".');
+      if (!j || !Array.isArray(j.results) || !j.results.length) throw new Error('No match for "' + q + '".');
       var p = G.pickResult(j.results, pq.qualifier);
       if (!p) throw new Error('No "' + pq.name + '" found in "' + pq.qualifier + '". Try the full state or country name, or its 2-letter code.');
-      var label = p.name + (p.admin1 ? ', ' + p.admin1 : '') + (p.country_code && p.country_code !== 'US' ? ' (' + p.country_code + ')' : '');
-      return { lat: p.latitude, lon: p.longitude, name: label, detail: p.country || '' };
+      var place = G.placeFromResult(p);
+      if (!place) throw new Error('"' + q + '" came back without a usable location.');
+      return place;
     });
 }
 

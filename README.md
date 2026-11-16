@@ -76,7 +76,7 @@ python -m http.server 8000
 
 ## Tests & CI
 
-The psychrometric core (`js/psychro.js`) and the geocoder result selector (`js/geo.js`) are UMD modules: the same files power the browser **and** are imported by Node's built-in test runner — no bundler, no dev dependencies. The geocoder tests run against real Open-Meteo responses in `test/fixtures/geocode.json`.
+The psychrometric core (`js/psychro.js`) and the geocoder result selector (`js/geo.js`) are UMD modules: the same files power the browser **and** are imported by Node's built-in test runner — no bundler, no dev dependencies. The geocoder tests run against real Open-Meteo and Zippopotam responses in `test/fixtures/`, including the malformed replies a lookup has to survive.
 
 ```bash
 node --test          # or: npm test
