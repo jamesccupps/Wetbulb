@@ -495,9 +495,22 @@ function clearManual() {
 function jget(k, d) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
 function jset(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 
+// Stored values are used only after a shape check. Every site on
+// jamesccupps.github.io shares this origin's localStorage, and a hand edit or a
+// half-written value otherwise throws on every load: a non-array wb_recent
+// killed boot() before any location was looked up, and a numeric name broke
+// renderChips() and the CSV filename. Normalizing here covers every reader.
+function storedPlace(p) {
+  if (!validPlace(p)) return null;
+  return { lat: p.lat, lon: p.lon,
+    name: typeof p.name === 'string' && p.name ? p.name : 'Saved location',
+    detail: typeof p.detail === 'string' ? p.detail : '',
+    query: typeof p.query === 'string' ? p.query : '',
+    gps: !!p.gps };   // a doubtful flag errs toward the coarser 2 dp share link
+}
 function saveLast(p) { jset('wb_last', { lat: p.lat, lon: p.lon, name: p.name, detail: p.detail || '', query: p.query || '', gps: !!p.gps }); }
-function loadLast() { return jget('wb_last', null); }
-function loadSites() { var a = jget('wb_sites', []); return Array.isArray(a) ? a.filter(validPlace) : []; }
+function loadLast() { return storedPlace(jget('wb_last', null)); }
+function loadSites() { var a = jget('wb_sites', []); return Array.isArray(a) ? a.map(storedPlace).filter(Boolean) : []; }
 function saveSites(a) { jset('wb_sites', a); }
 function isSaved(p) { var k = placeKey(p); return loadSites().some(function (s) { return placeKey(s) === k; }); }
 function addSite(p) {
@@ -510,22 +523,35 @@ function addSite(p) {
 }
 function removeSite(key) { saveSites(loadSites().filter(function (s) { return placeKey(s) !== key; })); renderChips(); }
 
-function loadDesignWb(p) { var m = jget('wb_designwb', {}); var v = m[placeKey(p)]; return finiteNum(v) ? v : null; }
+// Must be a plain object: under 'use strict' a stored string makes m[k] = v
+// throw on every keystroke, and an array silently drops the key on save.
+function loadDesignMap() {
+  var m = jget('wb_designwb', {});
+  return m && typeof m === 'object' && !Array.isArray(m) ? m : {};
+}
+function loadDesignWb(p) { var v = loadDesignMap()[placeKey(p)]; return finiteNum(v) ? v : null; }
 // valC === null clears the site's design wet-bulb. Without a delete path a
 // cleared field would be repopulated from storage by the next computeAndRender
 // (i.e. silently restored within one auto-refresh).
 function saveDesignWb(p, valC) {
-  var m = jget('wb_designwb', {}), k = placeKey(p);
+  var m = loadDesignMap(), k = placeKey(p);
   if (valC == null) delete m[k]; else m[k] = valC;
   jset('wb_designwb', m);
 }
 
+function loadRecent() {
+  var r = jget('wb_recent', []);
+  return Array.isArray(r) ? r.filter(function (q) { return typeof q === 'string' && q; }) : [];
+}
+function renderRecent(r) {
+  el.recentList.innerHTML = r.map(function (q) { return '<option value="' + escXml(q) + '">'; }).join('');
+}
 function pushRecent(p) {
   if (!p.query) return;
-  var r = jget('wb_recent', []).filter(function (q) { return q !== p.query; });
+  var r = loadRecent().filter(function (q) { return q !== p.query; });
   r.unshift(p.query); r = r.slice(0, 6);
   jset('wb_recent', r);
-  el.recentList.innerHTML = r.map(function (q) { return '<option value="' + escXml(q) + '">'; }).join('');
+  renderRecent(r);
 }
 
 function renderChips() {
@@ -755,9 +781,7 @@ function boot() {
   setRefresh(parseInt(el.refreshSel.value, 10));
   updateManual();
   renderChips();
-  // seed the recent datalist
-  var r = jget('wb_recent', []);
-  el.recentList.innerHTML = r.map(function (q) { return '<option value="' + escXml(q) + '">'; }).join('');
+  renderRecent(loadRecent());
 
   var sp = new URLSearchParams(window.location.search);
   var uParam = sp.get('u');
