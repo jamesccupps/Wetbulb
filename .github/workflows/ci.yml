@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+# Least privilege: nothing here pushes or publishes (Pages builds from the branch).
+permissions:
+  contents: read
+
 jobs:
   test:
     name: node --test
@@ -15,6 +19,8 @@ jobs:
         node-version: ['20', '22', '24']
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false   # nothing here pushes; keep the token out of .git/config
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v7
         with:
