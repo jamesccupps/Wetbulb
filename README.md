@@ -76,7 +76,7 @@ python -m http.server 8000
 
 ## Tests & CI
 
-The psychrometric core (`js/psychro.js`) and the geocoder result selector (`js/geo.js`) are UMD modules: the same files power the browser **and** are imported by Node's built-in test runner — no bundler, no dev dependencies. The geocoder tests run against real Open-Meteo and Zippopotam responses in `test/fixtures/`, including the malformed replies a lookup has to survive.
+The psychrometric core (`js/psychro.js`), the geocoder result selector (`js/geo.js`) and the request/saved-reading logic (`js/live.js`) are UMD modules: the same files power the browser **and** are imported by Node's built-in test runner — no bundler, no dev dependencies. The geocoder tests run against real Open-Meteo and Zippopotam responses in `test/fixtures/`, including the malformed replies a lookup has to survive.
 
 ```bash
 node --test          # or: npm test
@@ -99,9 +99,11 @@ index.html               markup only
 css/styles.css           styles + light/dark theming
 js/psychro.js            pure psychrometric core (browser + Node, UMD)
 js/geo.js                geocoder result selection, "City, ST" qualifiers (browser + Node, UMD)
+js/live.js               hedged API fetch + saved last reading (browser + Node, UMD)
 js/app.js                UI: fetch, render, chart, persistence, events
 test/psychro.test.js     node:test suite for the core
 test/geo.test.js         node:test suite for geocoder selection and reply checks
+test/live.test.js        node:test suite for the fetch hedge and saved reading
 test/sw.test.js          SHELL list matches the repo and the page (offline install)
 test/fixtures/           real geocoder responses used by the tests
 sw.js                    service worker (offline shell; APIs stay network-only)
@@ -111,6 +113,20 @@ assets/                  icon + social card
 ```
 
 ## Changelog
+
+**Unreleased** — Faster, and never silently stuck, on a phone.
+
+*Speed*
+- **A return visit shows the last reading at once,** then replaces it. It is dimmed and labeled "saved 10:42 AM" until the fresh one arrives, and a failed update says it is still showing the saved reading. Readings older than 6 hours are not shown. Reloading the page reuses the stored place without a second lookup.
+- **A stalled request is hedged after 4 s:** a second attempt runs alongside the first and the first good answer wins, so a dead connection is bypassed without cutting off a link that is merely slow. A network error or 5xx retries at once; a 4xx never does. Lookup and weather share one 12 s budget (it was 12 s each, so up to ~24 s).
+- **Locate reuses a position fix up to 10 minutes old** instead of 1 minute.
+- **API connections are opened early:** `preconnect` hints in the page, plus a fresh warm-up when Locate is tapped or the search box is focused. No extra requests are sent.
+
+*Visibility*
+- The status line names the step in progress and counts its seconds ("Getting your location… 6 s"). Add `?debug=1` to the address to keep a per-step timing breakdown on screen, useful on a phone with no developer tools.
+
+*Code*
+- New `js/live.js` (UMD, tested): the hedged JSON fetch and the saved-reading checks. Service-worker cache → `wetbulb-v6`.
 
 **1.2.1** — Fixes from an outside review (2026-11-15). None change a reading; they cover how the page copes with bad input.
 
