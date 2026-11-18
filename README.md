@@ -134,7 +134,7 @@ assets/                  icon + social card
 - The status line names the step in progress and counts its seconds ("Getting your location… 6 s"). Add `?debug=1` to the address to keep a per-step timing breakdown on screen, useful on a phone with no developer tools.
 
 *Code*
-- New `js/live.js` (UMD, tested): the hedged JSON fetch and the saved-reading checks. Service-worker cache → `wetbulb-v6`.
+- New `js/live.js` (UMD, tested): the hedged JSON fetch and the saved-reading checks. Service-worker cache → `wetbulb-v7`.
 
 **1.2.1** — Fixes from an outside review (2026-11-15). None change a reading; they cover how the page copes with bad input.
 
