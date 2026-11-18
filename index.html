@@ -6,24 +6,24 @@
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#0f1419" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#eef2f6" media="(prefers-color-scheme: light)">
-<title>Wet-Bulb Calculator: live, pressure-corrected psychrometrics</title>
-<meta name="description" content="Live, pressure-corrected wet-bulb temperature by ZIP, city or GPS, with a cooling-tower approach reference, shade WBGT, a 24-hour trend and offline calculator.">
+<title>Wet Bulb Calculator: Temperature &amp; Humidity, or Live by ZIP</title>
+<meta name="description" content="Wet-bulb temperature from air temp and relative humidity, or live by ZIP or city. Pressure-corrected, with dew point, shade WBGT and cooling-tower approach.">
 <meta name="author" content="James Cupps">
 <link rel="canonical" href="https://jamesccupps.github.io/Wetbulb/">
 <!-- Social preview. og:image is a PNG rendered from assets/social-card.svg: Facebook,
      LinkedIn, X and Slack don't show SVG previews. Re-render it if the SVG changes. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="James Cupps">
-<meta property="og:title" content="Wet-Bulb Calculator">
-<meta property="og:description" content="Live, pressure-corrected wet-bulb temperature with a cooling-tower approach reference and an offline psychrometric calculator.">
+<meta property="og:title" content="Wet Bulb Calculator: Temperature &amp; Humidity, or Live by ZIP">
+<meta property="og:description" content="Wet-bulb temperature from air temp and relative humidity, or live by ZIP or city. Pressure-corrected, with dew point, shade WBGT and cooling-tower approach.">
 <meta property="og:url" content="https://jamesccupps.github.io/Wetbulb/">
 <meta property="og:image" content="https://jamesccupps.github.io/Wetbulb/assets/social-card.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Wet-Bulb Calculator: live, pressure-corrected psychrometric wet-bulb temperature.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Wet-Bulb Calculator">
-<meta name="twitter:description" content="Live, pressure-corrected wet-bulb temperature with a cooling-tower approach reference and an offline psychrometric calculator.">
+<meta name="twitter:title" content="Wet Bulb Calculator: Temperature &amp; Humidity, or Live by ZIP">
+<meta name="twitter:description" content="Wet-bulb temperature from air temp and relative humidity, or live by ZIP or city. Pressure-corrected, with dew point, shade WBGT and cooling-tower approach.">
 <meta name="twitter:image" content="https://jamesccupps.github.io/Wetbulb/assets/social-card.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 8C50 8 78 44 78 64a28 28 0 1 1-56 0C22 44 50 8 50 8Z' fill='%2338bdf8'/%3E%3C/svg%3E">
 <!-- Open DNS+TLS to the APIs while the page loads, not when the first request
@@ -43,7 +43,17 @@
   "applicationCategory": "UtilitiesApplication",
   "operatingSystem": "Any (web browser)",
   "browserRequirements": "Requires JavaScript",
-  "description": "Real-time, pressure-corrected wet-bulb temperature by ZIP, city, or GPS, with a cooling-tower approach reference, a shade-WBGT estimate, a 24-hour trend and next-24h forecast peak, and an offline manual psychrometric calculator.",
+  "description": "Wet-bulb temperature from air temp and relative humidity, or live by ZIP or city. Pressure-corrected, with dew point, shade WBGT and cooling-tower approach.",
+  "featureList": [
+    "Wet-bulb temperature from air temperature and relative humidity",
+    "Relative humidity and dew point from dry-bulb and wet-bulb readings",
+    "Live wet bulb by ZIP code, city or GPS",
+    "Pressure correction for altitude",
+    "Dew point and shade WBGT estimate",
+    "Cooling-tower approach and design wet-bulb margin",
+    "24-hour trend and next-24-hour peak",
+    "Works offline"
+  ],
   "keywords": "wet bulb, wet-bulb temperature, psychrometrics, cooling tower, approach, WBGT, dew point, HVAC, heat stress",
   "image": "https://jamesccupps.github.io/Wetbulb/assets/social-card.png",
   "isAccessibleForFree": true,
@@ -66,7 +76,7 @@
   <header>
     <div>
       <h1><span class="dot" aria-hidden="true"></span>Wet-Bulb Calculator</h1>
-      <div class="sub">Live conditions by ZIP, city, or GPS &middot; pressure-corrected psychrometric wet-bulb temperature</div>
+      <div class="sub">Wet-bulb temperature from air temperature and humidity, or live by ZIP, city or GPS &middot; pressure-corrected</div>
     </div>
     <div class="hdr-ctl">
       <span id="unitLabel" class="sr-only">Units</span>

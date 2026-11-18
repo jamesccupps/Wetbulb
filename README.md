@@ -1,6 +1,6 @@
 # Wet-Bulb Calculator
 
-Real-time, **pressure-corrected wet-bulb temperature** by ZIP, city, or GPS — with a cooling-tower approach reference, a shade-WBGT estimate, a 24-hour trend plus next-24h forecast peak, and a fully offline manual psychrometric calculator.
+**Wet-bulb temperature** from air temperature and relative humidity, or live by ZIP, city or GPS. Pressure-corrected, with dew point, relative humidity from a psychrometer reading, shade WBGT, a cooling-tower approach reference, and a 24-hour trend with the next-24-hour peak. Works offline.
 
 [![CI](https://github.com/jamesccupps/Wetbulb/actions/workflows/ci.yml/badge.svg)](https://github.com/jamesccupps/Wetbulb/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-informational.svg)](LICENSE)
@@ -22,7 +22,9 @@ Real-time, **pressure-corrected wet-bulb temperature** by ZIP, city, or GPS — 
 - **24-hour trend + next-24h outlook** — wet-bulb, dry-bulb and dew-point plotted from archived + forecast hourly data, with a forecast-peak callout to stage tower capacity ahead of the afternoon peak.
 - **Multiple saved sites** — pin the buildings you manage and glance between them.
 - **Barometric trend** (rising / falling over 3 h) and a WB-depression readout.
-- **Offline manual calculator** — enter air temp, RH and pressure to get wet-bulb, dew point, WB depression and cold-water temp with no network at all. Pressure follows the unit toggle (inHg under °F, hPa under °C) and is range-checked, so a mixed-up unit is caught rather than silently returning wet-bulb ≈ dry-bulb.
+- **Offline calculator, first on the page** — enter air temp, RH and pressure to get wet-bulb, dew point, WB depression and cold-water temp with no network at all; it opens on a worked example (90 °F, 50 %, sea level). Pressure follows the unit toggle (inHg under °F, hPa under °C) and is range-checked, so a mixed-up unit is caught rather than silently returning wet-bulb ≈ dry-bulb. A returning visitor with a saved place gets the live reading on top instead.
+- **Relative humidity from a psychrometer reading** — enter dry bulb, wet bulb and pressure for RH and dew point; the same psychrometric equation run in reverse, so the two calculators agree exactly.
+- **Quick-reference table** of wet bulb by air temperature and RH, computed on load by the same code, plus a short explanation of the method, wet bulb vs dew point vs WBGT, and cooling-tower approach.
 - **Share & export** — copy a shareable deep link, copy a one-line summary for a work order/ticket, or download the 24 h series as CSV.
 - **°F / °C toggle**, light / dark / auto theme, auto-refresh, installable PWA with offline shell caching.
 - **Zero dependencies, no build step.** Plain HTML/CSS/vanilla JS.
@@ -114,13 +116,19 @@ assets/                  icon + social card
 
 ## Changelog
 
-**Unreleased** — Faster, and never silently stuck, on a phone.
+**Unreleased** — Faster on a phone, and a page that answers the search: calculator first, the reverse calculation, and an explanation.
 
 *Speed*
 - **A return visit shows the last reading at once,** then replaces it. It is dimmed and labeled "saved 10:42 AM" until the fresh one arrives, and a failed update says it is still showing the saved reading. Readings older than 6 hours are not shown. Reloading the page reuses the stored place without a second lookup.
 - **A stalled request is hedged after 4 s:** a second attempt runs alongside the first and the first good answer wins, so a dead connection is bypassed without cutting off a link that is merely slow. A network error or 5xx retries at once; a 4xx never does. Lookup and weather share one 12 s budget (it was 12 s each, so up to ~24 s).
 - **Locate reuses a position fix up to 10 minutes old** instead of 1 minute.
 - **API connections are opened early:** `preconnect` hints in the page, plus a fresh warm-up when Locate is tapped or the search box is focused. No extra requests are sent.
+
+*Search*
+- **The calculator comes first** for a first visit (which is also what a search crawler sees), with a worked example (90 °F, 50 %, sea level) already computed. A visitor with a saved place, or arriving on a link to one, still gets the live reading first.
+- **New: relative humidity and dew point from dry bulb and wet bulb** (`Psychro.rhFromWetBulb`), the exact inverse of the wet-bulb solve.
+- **An explanation under the tools** — what wet bulb is, how the calculator works and where Stull's fit stops applying, wet bulb vs dew point vs WBGT, wet bulb for cooling towers — and a quick-reference table computed on load by the same code as the calculators.
+- Title, description, social tags and structured data now say what the page does: *Wet Bulb Calculator: Temperature & Humidity, or Live by ZIP*.
 
 *Visibility*
 - The status line names the step in progress and counts its seconds ("Getting your location… 6 s"). Add `?debug=1` to the address to keep a per-step timing breakdown on screen, useful on a phone with no developer tools.
