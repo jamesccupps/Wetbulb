@@ -26,6 +26,12 @@
 <meta name="twitter:description" content="Live, pressure-corrected wet-bulb temperature with a cooling-tower approach reference and an offline psychrometric calculator.">
 <meta name="twitter:image" content="https://jamesccupps.github.io/Wetbulb/assets/social-card.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 8C50 8 78 44 78 64a28 28 0 1 1-56 0C22 44 50 8 50 8Z' fill='%2338bdf8'/%3E%3C/svg%3E">
+<!-- Open DNS+TLS to the APIs while the page loads, not when the first request
+     goes out (often 0.3-1 s on a phone). crossorigin: fetch() to another
+     origin uses the anonymous connection pool, which a plain hint does not. -->
+<link rel="preconnect" href="https://api.open-meteo.com" crossorigin>
+<link rel="preconnect" href="https://api.zippopotam.us" crossorigin>
+<link rel="preconnect" href="https://geocoding-api.open-meteo.com" crossorigin>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="css/styles.css">
 <script type="application/ld+json">

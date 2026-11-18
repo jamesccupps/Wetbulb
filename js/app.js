@@ -161,7 +161,7 @@ function readReply(r, what) {
   });
 }
 function geocodeZip(zip, signal) {
-  return fetch('https://api.zippopotam.us/us/' + zip, { signal: signal }).then(function (r) {
+  return fetch(API.zip + '/us/' + zip, { signal: signal }).then(function (r) {
     if (r.status === 404) throw new Error('ZIP ' + zip + ' not found.');
     return readReply(r, 'ZIP lookup');
   }).then(function (j) {
@@ -172,7 +172,7 @@ function geocodeZip(zip, signal) {
 }
 function geocodeCity(q, signal) {
   var pq = G.parseQuery(q);
-  return fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(pq.name) + '&count=10&language=en&format=json', { signal: signal })
+  return fetch(API.city + '/v1/search?name=' + encodeURIComponent(pq.name) + '&count=10&language=en&format=json', { signal: signal })
     .then(function (r) { return readReply(r, 'City lookup'); })
     .then(function (j) {
       if (!j || !Array.isArray(j.results) || !j.results.length) throw new Error('No match for "' + q + '".');
@@ -184,9 +184,32 @@ function geocodeCity(q, signal) {
     });
 }
 
+/* ---------- connection warm-up ---------- */
+var API = {
+  weather: 'https://api.open-meteo.com',
+  zip: 'https://api.zippopotam.us',
+  city: 'https://geocoding-api.open-meteo.com'
+};
+// Open TCP+TLS to an API while the user waits on something else -- a GPS fix,
+// or typing a place. A preconnect sends no request. Chrome drops an idle one
+// after ~10 s, so the hints in index.html are usually gone by the time Locate
+// is tapped; a fresh <link> starts a new one. At most one per origin per 8 s.
+var warmedAt = {};
+function warm(origins) {
+  var now = Date.now();
+  origins.forEach(function (o) {
+    if (now - (warmedAt[o] || 0) < 8000) return;
+    warmedAt[o] = now;
+    var l = document.createElement('link');
+    l.rel = 'preconnect'; l.href = o; l.crossOrigin = 'anonymous';
+    document.head.appendChild(l);
+    setTimeout(function () { l.remove(); }, 15000);
+  });
+}
+
 /* ---------- weather ---------- */
 function fetchWeather(lat, lon, signal) {
-  var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
+  var u = API.weather + '/v1/forecast?latitude=' + lat + '&longitude=' + lon +
     '&current=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,surface_pressure,wind_speed_10m,wind_direction_10m,weather_code' +
     '&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,surface_pressure' +
     '&past_days=1&forecast_days=2&wind_speed_unit=mph&timezone=auto';
@@ -755,6 +778,7 @@ function useGPS() {
   if (!navigator.geolocation) { setStatus('Geolocation not available in this browser.', true); return; }
   startSteps();
   loading('Getting your location…', 'location');
+  warm([API.weather]);   // the weather fetch follows the fix
   navigator.geolocation.getCurrentPosition(function (pos) {
     run({ lat: pos.coords.latitude, lon: pos.coords.longitude, name: 'Your location', detail: '', gps: true }, { chained: true });
   }, function (err) {
@@ -822,6 +846,7 @@ function registerSW() {
 function wireEvents() {
   el.goBtn.onclick = submitLoc;
   el.locInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitLoc(); });
+  el.locInput.addEventListener('focus', function () { warm([API.zip, API.city, API.weather]); });
   el.gpsBtn.onclick = useGPS;
   el.approachIn.addEventListener('input', updateTower);
   el.designWbIn.addEventListener('input', function () {
