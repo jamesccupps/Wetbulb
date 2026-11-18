@@ -54,6 +54,10 @@ h1 .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-sh
 
 .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
 .card+.card{margin-top:14px}
+/* #calc and #live swap places for a returning visitor (a DOM move), so the gap
+   between them is keyed on whichever comes second. */
+section+section{display:block;margin-top:14px}
+.hdr-ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 
 .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 /* min-width:0 lets the field shrink below its children's min-content. The

@@ -915,6 +915,9 @@ function boot() {
     if (validPlace(shared)) place = (last && sameSpot(last, shared)) ? last : shared;
     else place = last;
   }
+  // Someone with a saved place, or a link to one, came for live conditions:
+  // put that section first. A first visit keeps the calculators on top.
+  if (place || loc) { var live = document.getElementById('live'); live.parentNode.insertBefore(live, document.getElementById('calc')); }
   if (place) { showSavedThenRun(place); return; }
   if (!navigator.onLine) {
     setStatus('You appear to be offline. The manual calculator below works without a connection.');

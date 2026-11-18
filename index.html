@@ -68,14 +68,64 @@
       <h1><span class="dot" aria-hidden="true"></span>Wet-Bulb Calculator</h1>
       <div class="sub">Live conditions by ZIP, city, or GPS &middot; pressure-corrected psychrometric wet-bulb temperature</div>
     </div>
-    <span class="seg" id="themeSeg" role="group" aria-label="Color theme">
-      <button type="button" data-theme="auto" aria-pressed="true">Auto</button>
-      <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
-      <button type="button" data-theme="light" aria-pressed="false">Light</button>
-    </span>
+    <div class="hdr-ctl">
+      <span id="unitLabel" class="sr-only">Units</span>
+      <span class="seg" id="unitSeg" role="group" aria-labelledby="unitLabel">
+        <button type="button" data-u="F" aria-pressed="true">&deg;F</button>
+        <button type="button" data-u="C" aria-pressed="false">&deg;C</button>
+      </span>
+      <span class="seg" id="themeSeg" role="group" aria-label="Color theme">
+        <button type="button" data-theme="auto" aria-pressed="true">Auto</button>
+        <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+        <button type="button" data-theme="light" aria-pressed="false">Light</button>
+      </span>
+    </div>
   </header>
 
+  <!-- First-time visitors (and search engines) get the calculators first, with a
+       worked example already computed. A visitor with a saved place, or a link
+       to one, gets #live moved ahead of this by app.js (a DOM move, not CSS
+       order, so tab order and screen readers follow what is on screen). -->
+  <section id="calc" aria-label="Calculators">
   <div class="card">
+    <h2>Wet bulb from air temperature and humidity
+      <span style="font-weight:400;font-size:12px;color:var(--muted)">no internet needed</span>
+    </h2>
+    <div class="note">Enter an air temperature and relative humidity to get the wet-bulb temperature. Pressure defaults to sea level and follows the unit toggle &mdash; inHg in &deg;F mode, hPa in &deg;C mode; adjust it if you know the local station pressure.</div>
+    <div class="tower-row" style="margin-top:12px">
+      <div>
+        <label for="mTempIn">Air temp</label><br>
+        <input type="number" id="mTempIn" value="90" step="0.1"> <span id="mTempUnit">&deg;F</span>
+      </div>
+      <div>
+        <label for="mRhIn">Rel. humidity</label><br>
+        <input type="number" id="mRhIn" value="50" min="0" max="100" step="1"> %
+      </div>
+      <div>
+        <label for="mPresIn">Pressure</label><br>
+        <input type="number" id="mPresIn" value="29.92" step="0.01"> <span id="mPresUnit">inHg</span>
+      </div>
+      <div>
+        <label for="manApproachIn">Approach</label><br>
+        <input type="number" id="manApproachIn" value="7" min="0" max="40" step="0.5" style="width:80px"> <span id="manApprUnit">&deg;F</span>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:14px" role="group" aria-label="Calculator results">
+      <div class="metric"><div class="k">Wet bulb</div><div class="v" id="manWb" style="color:var(--accent)">&mdash;</div></div>
+      <div class="metric"><div class="k">Dew point</div><div class="v" id="manDew">&mdash;</div></div>
+      <div class="metric"><div class="k">WB depression</div><div class="v" id="manDep">&mdash;</div></div>
+      <div class="metric"><div class="k">Shade WBGT est.</div><div class="v" id="manWbgt">&mdash;</div></div>
+      <div class="metric"><div class="k">Min tower water</div><div class="v" id="manMin">&mdash;</div></div>
+      <div class="metric"><div class="k">Cold water @ approach</div><div class="v" id="manCold" style="color:var(--accent)">&mdash;</div></div>
+    </div>
+    <div id="manBadge" style="margin-top:10px"></div>
+    <div class="note" id="manErr" role="alert" style="color:var(--danger)"></div>
+  </div>
+  </section>
+
+  <section id="live" aria-label="Live conditions">
+  <div class="card">
+    <h2>Live wet bulb by ZIP, city or GPS</h2>
     <div class="controls">
       <div class="field">
         <label for="locInput" class="sr-only">Location (ZIP or city)</label>
@@ -86,12 +136,6 @@
       <button type="button" class="icon" id="gpsBtn" aria-label="Use my location"><span aria-hidden="true">&#x1F4CD;</span> Locate</button>
     </div>
     <div class="opts">
-      <span id="unitLabel">Units</span>
-      <span class="seg" id="unitSeg" role="group" aria-labelledby="unitLabel">
-        <button type="button" data-u="F" aria-pressed="true">&deg;F</button>
-        <button type="button" data-u="C" aria-pressed="false">&deg;C</button>
-      </span>
-      <span style="margin-left:auto"></span>
       <label for="refreshSel">Auto-refresh</label>
       <select id="refreshSel">
         <option value="0">Off</option>
@@ -195,41 +239,7 @@
     <div class="note" id="towerHint"></div>
     <div class="callout" id="towerMargin" hidden></div>
   </div>
-
-  <div class="card">
-    <h2>Manual calculator
-      <span style="font-weight:400;font-size:12px;color:var(--muted)">no internet needed</span>
-    </h2>
-    <div class="note">Enter any air temperature and relative humidity to get the wet-bulb temperature directly. Pressure defaults to sea level and follows the unit toggle &mdash; inHg in &deg;F mode, hPa in &deg;C mode; adjust it if you know the local station pressure.</div>
-    <div class="tower-row" style="margin-top:12px">
-      <div>
-        <label for="mTempIn">Air temp</label><br>
-        <input type="number" id="mTempIn" value="85" step="0.1"> <span id="mTempUnit">&deg;F</span>
-      </div>
-      <div>
-        <label for="mRhIn">Rel. humidity</label><br>
-        <input type="number" id="mRhIn" value="50" min="0" max="100" step="1"> %
-      </div>
-      <div>
-        <label for="mPresIn">Pressure</label><br>
-        <input type="number" id="mPresIn" value="29.92" step="0.01"> <span id="mPresUnit">inHg</span>
-      </div>
-      <div>
-        <label for="manApproachIn">Approach</label><br>
-        <input type="number" id="manApproachIn" value="7" min="0" max="40" step="0.5" style="width:80px"> <span id="manApprUnit">&deg;F</span>
-      </div>
-    </div>
-    <div class="grid" style="margin-top:14px" role="group" aria-label="Manual calculator results">
-      <div class="metric"><div class="k">Wet bulb</div><div class="v" id="manWb" style="color:var(--accent)">&mdash;</div></div>
-      <div class="metric"><div class="k">Dew point</div><div class="v" id="manDew">&mdash;</div></div>
-      <div class="metric"><div class="k">WB depression</div><div class="v" id="manDep">&mdash;</div></div>
-      <div class="metric"><div class="k">Shade WBGT est.</div><div class="v" id="manWbgt">&mdash;</div></div>
-      <div class="metric"><div class="k">Min tower water</div><div class="v" id="manMin">&mdash;</div></div>
-      <div class="metric"><div class="k">Cold water @ approach</div><div class="v" id="manCold" style="color:var(--accent)">&mdash;</div></div>
-    </div>
-    <div id="manBadge" style="margin-top:10px"></div>
-    <div class="note" id="manErr" role="alert" style="color:var(--danger)"></div>
-  </div>
+  </section>
 
   <footer>
     Weather data &copy; <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> &middot; ZIP geocoding by <a href="https://www.zippopotam.us" target="_blank" rel="noopener">Zippopotam.us</a><br>
