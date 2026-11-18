@@ -5,6 +5,7 @@
 'use strict';
 var P = window.Psychro;
 var G = window.Geo;
+var L = window.Live;
 
 /* ---------- element cache ---------- */
 var IDS = ['locInput','goBtn','gpsBtn','unitSeg','themeSeg','refreshSel','chips','recentList',
@@ -144,8 +145,11 @@ function showError(e) {
   var msg = (!navigator.onLine)
     ? 'You appear to be offline. The manual calculator below still works without a connection.'
     : (e && e.message ? e.message : 'Something went wrong loading the data.');
+  // Never let a failed update leave a saved reading looking current.
+  if (current && current.savedAt) msg += ' Showing the reading saved at ' + clock(current.savedAt) + '.';
   setStatus(msg, true);
 }
+function clock(ms) { return new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
 
 /* ---------- geocoding ---------- */
 // Status first, then the body. Unchecked, a 429 with Open-Meteo's JSON error
@@ -228,7 +232,10 @@ function run(place, opts) {
   timedOut = false;
   var to = setTimeout(function () { timedOut = true; ctrl.abort(); }, REQUEST_TIMEOUT_MS);
   if (!(opts && opts.chained)) startSteps();
-  loading('Fetching current conditions for ' + place.name + '…', 'weather');
+  var showingSaved = current && current.savedAt && placeKey(current.place) === placeKey(place);
+  loading(showingSaved
+    ? 'Updating ' + place.name + ' (showing the reading saved at ' + clock(current.savedAt) + ')…'
+    : 'Fetching current conditions for ' + place.name + '…', 'weather');
   return fetchWeather(place.lat, place.lon, ctrl.signal).then(function (w) {
     clearTimeout(to);
     if (ctrl.signal.aborted) return;
@@ -286,7 +293,10 @@ function pressureTrend(w) {
 }
 
 /* ---------- compute + render ---------- */
-function computeAndRender(place, w) {
+// opts.savedAt: w is the saved reading from that time, shown while a fresh one
+// loads. It is drawn but not re-saved, and the status stays on the update.
+function computeAndRender(place, w, opts) {
+  var savedAt = opts && opts.savedAt;
   var c = w.current;
   var Tc = c.temperature_2m, RH = c.relative_humidity_2m, Tdew = c.dew_point_2m, Pv = c.surface_pressure;
   if (!finiteNum(Tc) || !finiteNum(RH)) {
@@ -303,7 +313,7 @@ function computeAndRender(place, w) {
     place: place, w: w, Tc: Tc, RH: RH, Tdew: Tdew, P: Pv, wbC: wbC, wbStull: wbStull,
     apparent: c.apparent_temperature, windSpd: c.wind_speed_10m, windDir: c.wind_direction_10m,
     wcode: c.weather_code, elevM: w.elevation,
-    series: buildSeries(w), trend: pressureTrend(w)
+    series: buildSeries(w), trend: pressureTrend(w), savedAt: savedAt || null
   };
   current.fcPeak = forecastPeak(current.series);
 
@@ -312,9 +322,12 @@ function computeAndRender(place, w) {
   el.designWbIn.value = (dw != null) ? dC(dw).toFixed(1) : '';
 
   render();
-  hideStatus();
-  saveLast(place);
-  pushRecent(place);
+  if (!savedAt) {
+    hideStatus();
+    saveLast(place);
+    pushRecent(place);
+    jset('wb_reading', L.packReading(placeKey(place), w, Date.now()));
+  }
   renderChips();
   updateURL();
 }
@@ -323,13 +336,15 @@ function render() {
   if (!current) return;
   var c = current, w = c.w, cur = w.current;
   el.result.classList.remove('hidden');
+  el.result.classList.toggle('saved', !!c.savedAt);
   el.towerCard.classList.remove('hidden');
   el.chartCard.classList.remove('hidden');
 
   el.locName.textContent = c.place.name;
   el.locMeta.textContent = (c.place.detail ? c.place.detail + ' · ' : '') + w.latitude.toFixed(3) + ', ' + w.longitude.toFixed(3);
   el.wxDesc.textContent = WMO[cur.weather_code] || '—';
-  el.obsTime.textContent = 'Obs ' + (cur.time ? cur.time.replace('T', ' ') : '') + ' ' + (w.timezone_abbreviation || '');
+  el.obsTime.textContent = 'Obs ' + (cur.time ? cur.time.replace('T', ' ') : '') + ' ' + (w.timezone_abbreviation || '') +
+    (c.savedAt ? ' · saved ' + clock(c.savedAt) : '');
 
   // hero + alternate unit
   el.wbBig.textContent = t1(c.wbC);
@@ -886,21 +901,44 @@ function boot() {
   var uParam = sp.get('u');
   if (uParam === 'C' || uParam === 'F') setUnit(uParam, true);
 
+  // The address bar is rewritten after every reading (?loc= for a typed
+  // search, ?lat&lon for a fix or a pin), so reloading it is the usual return
+  // visit. Both map back to the stored last place -- no second geocode, and its
+  // saved reading can show at once. A GPS fix is in the URL at 2 dp, hence the
+  // tolerance in sameSpot(). Anything unusable in storage (stale schema,
+  // partial write, hand edit) falls through to the default rather than
+  // dead-ending the whole app.
+  var last = loadLast(), loc = sp.get('loc'), place = null;
+  if (loc) {
+    if (last && last.query === loc) place = last;
+  } else {
+    var shared = { lat: parseFloat(sp.get('lat')), lon: parseFloat(sp.get('lon')),
+                   name: (sp.get('n') || 'Shared location').slice(0, 120), detail: '' };
+    if (validPlace(shared)) place = (last && sameSpot(last, shared)) ? last : shared;
+    else place = last;
+  }
+  if (place) { showSavedThenRun(place); return; }
   if (!navigator.onLine) {
     setStatus('You appear to be offline. The manual calculator below works without a connection.');
     return;
   }
-  if (sp.get('loc')) { el.locInput.value = sp.get('loc'); resolveAndRun(sp.get('loc')); return; }
-  var shared = { lat: parseFloat(sp.get('lat')), lon: parseFloat(sp.get('lon')),
-                 name: (sp.get('n') || 'Shared location').slice(0, 120), detail: '' };
-  if (validPlace(shared)) { run(shared); return; }
-
-  // Anything unusable here (stale schema, partial write, hand-edited storage)
-  // falls through to the default rather than dead-ending the whole app.
-  var last = loadLast();
-  if (validPlace(last)) { el.locInput.value = last.query || ''; run(last); return; }
-  el.locInput.value = '04101';
-  resolveAndRun('04101');
+  el.locInput.value = loc || '04101';
+  resolveAndRun(loc || '04101');
+}
+function sameSpot(a, b) { return Math.abs(a.lat - b.lat) < 0.006 && Math.abs(a.lon - b.lon) < 0.006; }
+// Draw the saved reading for this place at once (marked as saved), then fetch
+// a fresh one. Before this a return visit sat on dashes until Open-Meteo
+// answered, however slow that was.
+function showSavedThenRun(place) {
+  if (place.query) el.locInput.value = place.query;
+  var saved = L.usableReading(jget('wb_reading', null), placeKey(place), Date.now());
+  if (saved) computeAndRender(place, saved.w, { savedAt: saved.at });
+  if (!navigator.onLine) {
+    setStatus('You appear to be offline. ' + (saved ? 'Showing the reading saved at ' + clock(saved.at) + '. ' : '') +
+      'The manual calculator below works without a connection.');
+    return;
+  }
+  run(place);
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

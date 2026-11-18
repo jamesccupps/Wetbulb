@@ -109,6 +109,9 @@ select{background:var(--panel-2);border:1px solid var(--border);color:var(--text
 .hero{display:flex;align-items:baseline;gap:14px;margin:18px 0 4px;flex-wrap:wrap}
 .hero .label{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
 .hero .big{font-size:64px;font-weight:700;letter-spacing:-2px;line-height:1;color:var(--accent)}
+/* A saved reading shown while a fresh one loads: dimmed, and "saved HH:MM" is
+   printed beside the observation time, so it is not taken for a live value. */
+#result.saved .hero .big{opacity:.55}
 .hero .alt{font-size:16px;color:var(--muted)}
 
 .scale{margin:18px 0 6px}

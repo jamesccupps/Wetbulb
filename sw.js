@@ -7,10 +7,10 @@
    a build step. Bumping VERSION forces an immediate full refresh. */
 'use strict';
 
-var VERSION = 'wetbulb-v5';
+var VERSION = 'wetbulb-v6';
 var SHELL = [
   './', './index.html', './css/styles.css',
-  './js/psychro.js', './js/geo.js', './js/app.js',
+  './js/psychro.js', './js/geo.js', './js/live.js', './js/app.js',
   './manifest.webmanifest', './assets/icon.svg', './assets/icon-maskable.svg'
 ];
 
