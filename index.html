@@ -121,6 +121,33 @@
     <div id="manBadge" style="margin-top:10px"></div>
     <div class="note" id="manErr" role="alert" style="color:var(--danger)"></div>
   </div>
+
+  <div class="card">
+    <h2>Relative humidity from dry bulb and wet bulb
+      <span style="font-weight:400;font-size:12px;color:var(--muted)">psychrometer readings</span>
+    </h2>
+    <div class="note">Read both bulbs on a sling or aspirated psychrometer and enter them here for relative humidity and dew point. It runs the same pressure-corrected equation as the calculator above, in reverse.</div>
+    <div class="tower-row" style="margin-top:12px">
+      <div>
+        <label for="rDbIn">Dry bulb</label><br>
+        <input type="number" id="rDbIn" value="90" step="0.1"> <span id="rDbUnit">&deg;F</span>
+      </div>
+      <div>
+        <label for="rWbIn">Wet bulb</label><br>
+        <input type="number" id="rWbIn" value="75" step="0.1"> <span id="rWbUnit">&deg;F</span>
+      </div>
+      <div>
+        <label for="rPresIn">Pressure</label><br>
+        <input type="number" id="rPresIn" value="29.92" step="0.01"> <span id="rPresUnit">inHg</span>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:14px" role="group" aria-label="Relative humidity results">
+      <div class="metric"><div class="k">Rel. humidity</div><div class="v" id="rRh" style="color:var(--accent)">&mdash;</div></div>
+      <div class="metric"><div class="k">Dew point</div><div class="v" id="rDew">&mdash;</div></div>
+      <div class="metric"><div class="k">WB depression</div><div class="v" id="rDep">&mdash;</div></div>
+    </div>
+    <div class="note" id="rErr" role="alert" style="color:var(--danger)"></div>
+  </div>
   </section>
 
   <section id="live" aria-label="Live conditions">

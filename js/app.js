@@ -14,7 +14,8 @@ var IDS = ['locInput','goBtn','gpsBtn','unitSeg','themeSeg','refreshSel','chips'
   'copyBtn','shareBtn','csvBtn','methNote','chartCard','chartBox','chartNote','chartLegend',
   'towerCard','twMin','approachIn','apprUnit','designWbIn','designWbUnit','twCold','towerHint','towerMargin',
   'mTempIn','mTempUnit','mRhIn','mPresIn','mPresUnit','manApproachIn','manApprUnit','manWb','manDew','manDep','manWbgt',
-  'manMin','manCold','manBadge','manErr'];
+  'manMin','manCold','manBadge','manErr',
+  'rDbIn','rDbUnit','rWbIn','rWbUnit','rPresIn','rPresUnit','rRh','rDew','rDep','rErr'];
 var el = {};
 IDS.forEach(function (id) { el[id] = document.getElementById(id); });
 
@@ -557,16 +558,7 @@ function updateManual() {
   el.manErr.textContent = '';
   if (isNaN(tRaw) || isNaN(rh)) { clearManual(); el.manErr.textContent = 'Enter a temperature and humidity.'; return; }
   if (rh < 0 || rh > 100) { clearManual(); el.manErr.textContent = 'Humidity must be between 0 and 100%.'; return; }
-  // Catch the classic slip of typing hPa into an inHg field (and vice versa):
-  // silently accepting 1010 inHg would return a wet bulb ≈ dry bulb with no hint
-  // anything was wrong.
-  if (!isNaN(prRaw) && (pr < PRES_MIN_HPA || pr > PRES_MAX_HPA)) {
-    clearManual();
-    el.manErr.textContent = 'Pressure must be between ' +
-      presFromHpa(PRES_MIN_HPA).toFixed(presDecimals()) + ' and ' +
-      presFromHpa(PRES_MAX_HPA).toFixed(presDecimals()) + ' ' + presUnit() + '.';
-    return;
-  }
+  if (!isNaN(prRaw) && pressureError(pr)) { clearManual(); el.manErr.textContent = pressureError(pr); return; }
   var tC = unit === 'F' ? P.fToC(tRaw) : tRaw;
   var td = P.dewpoint(tC, rh);
   var wbC = P.wetBulb(tC, rh, pr, td);
@@ -583,6 +575,35 @@ function updateManual() {
 function clearManual() {
   ['manWb','manDew','manDep','manWbgt','manMin','manCold'].forEach(function (id) { el[id].textContent = '—'; });
   el.manBadge.innerHTML = '';
+}
+// Catch the classic slip of typing hPa into an inHg field (and vice versa):
+// silently accepting 1010 inHg would return a wet bulb ≈ dry bulb with no hint
+// anything was wrong. '' when the pressure is plausible.
+function pressureError(prHpa) {
+  if (prHpa >= PRES_MIN_HPA && prHpa <= PRES_MAX_HPA) return '';
+  return 'Pressure must be between ' + presFromHpa(PRES_MIN_HPA).toFixed(presDecimals()) + ' and ' +
+    presFromHpa(PRES_MAX_HPA).toFixed(presDecimals()) + ' ' + presUnit() + '.';
+}
+
+/* ---------- reverse calculator: RH and dew point from the two bulbs ---------- */
+function updateReverse() {
+  var dbRaw = parseFloat(el.rDbIn.value), wbRaw = parseFloat(el.rWbIn.value), prRaw = parseFloat(el.rPresIn.value);
+  var pr = isNaN(prRaw) ? presToHpa(presDefault()) : presToHpa(prRaw);
+  var msg = '', dbC, wbC, rh;
+  if (isNaN(dbRaw) || isNaN(wbRaw)) msg = 'Enter a dry-bulb and a wet-bulb temperature.';
+  else if (!isNaN(prRaw)) msg = pressureError(pr);
+  if (!msg) {
+    dbC = unit === 'F' ? P.fToC(dbRaw) : dbRaw;
+    wbC = unit === 'F' ? P.fToC(wbRaw) : wbRaw;
+    rh = P.rhFromWetBulb(dbC, wbC, pr);
+    if (wbC > dbC) msg = 'The wet bulb can’t be above the dry bulb.';
+    else if (!finiteNum(rh)) msg = 'That wet bulb is too far below the dry bulb for any moisture at this pressure.';
+  }
+  el.rErr.textContent = msg;
+  if (msg) { ['rRh','rDew','rDep'].forEach(function (id) { el[id].textContent = '—'; }); return; }
+  el.rRh.textContent = rh.toFixed(1) + '%';
+  el.rDew.textContent = t1(P.dewpoint(dbC, rh));
+  el.rDep.textContent = tDelta(dbC - wbC);
 }
 
 /* ---------- persistence ---------- */
@@ -823,6 +844,9 @@ function setUnit(newU, convertInputs) {
     convDelta(el.approachIn, newU);     // deltas
     convDelta(el.manApproachIn, newU);
     convPres(el.mPresIn, newU);         // inHg <-> hPa
+    convAbs(el.rDbIn, newU);            // reverse calculator
+    convAbs(el.rWbIn, newU);
+    convPres(el.rPresIn, newU);
   }
   unit = newU;
   jset('wb_unit', unit);
@@ -835,7 +859,12 @@ function setUnit(newU, convertInputs) {
   el.designWbUnit.textContent = '°' + unit;
   el.mPresUnit.textContent = presUnit();
   el.mPresIn.step = unit === 'F' ? '0.01' : '1';
+  el.rDbUnit.textContent = '°' + unit;
+  el.rWbUnit.textContent = '°' + unit;
+  el.rPresUnit.textContent = presUnit();
+  el.rPresIn.step = el.mPresIn.step;
   updateManual();
+  updateReverse();
   if (current) render();
 }
 function applyTheme(mode) {
@@ -872,6 +901,7 @@ function wireEvents() {
   });
   el.refreshSel.addEventListener('change', function () { setRefresh(parseInt(this.value, 10)); });
   ['mTempIn','mRhIn','mPresIn','manApproachIn'].forEach(function (id) { el[id].addEventListener('input', updateManual); });
+  ['rDbIn','rWbIn','rPresIn'].forEach(function (id) { el[id].addEventListener('input', updateReverse); });
   el.copyBtn.onclick = function () { copyText(summaryText(), el.copyBtn); };
   el.shareBtn.onclick = function () { copyText(shareURL(), el.shareBtn); };
   el.csvBtn.onclick = function () { downloadCSV(el.csvBtn); };
@@ -892,6 +922,7 @@ function boot() {
   registerSW();
   setRefresh(parseInt(el.refreshSel.value, 10));
   updateManual();
+  updateReverse();
   renderChips();
   renderRecent(loadRecent());
 

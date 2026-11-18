@@ -252,3 +252,37 @@ test('unit conversions round-trip and handle deltas without the 32° offset', ()
   close(P.inHgToHpa(P.hpaToInHg(1009)), 1009, 1e-6, 'hPa↔inHg round trip');
   close(P.hpaToInHg(1013.25), 29.921, 0.001, 'standard atmosphere in inHg');
 });
+
+test('rhFromWetBulb inverts wetBulb across a wide grid and two pressures', () => {
+  let worst = 0, at = null;
+  for (const P0 of [1013.25, 850]) {
+    for (let Tc = -10; Tc <= 45; Tc += 5) {
+      for (let RH = 5; RH <= 99; RH += 2) {
+        const wb = P.wetBulb(Tc, RH, P0, P.dewpoint(Tc, RH));
+        const d = Math.abs(P.rhFromWetBulb(Tc, wb, P0) - RH);
+        if (d > worst) { worst = d; at = `${Tc} °C / ${RH} % / ${P0} hPa`; }
+      }
+    }
+  }
+  assert.ok(worst < 1e-6, `round-trip RH error ${worst} at ${at}`);
+});
+
+test('rhFromWetBulb: equal bulbs are saturated; impossible pairs are NaN', () => {
+  assert.equal(P.rhFromWetBulb(25, 25, 1013.25), 100);
+  assert.ok(Number.isNaN(P.rhFromWetBulb(25, 26, 1013.25)), 'wet bulb above dry bulb');
+  assert.ok(Number.isNaN(P.rhFromWetBulb(40, 0, 1013.25)), 'depression too large for any moisture');
+  assert.ok(Number.isNaN(P.rhFromWetBulb(NaN, 20, 1013.25)));
+});
+
+test('rhFromWetBulb: same bulbs at altitude mean more moisture; bad pressure falls back to sea level', () => {
+  const sea = P.rhFromWetBulb(32, 24, 1013.25), high = P.rhFromWetBulb(32, 24, 840);
+  assert.ok(high > sea, `${high.toFixed(1)} % at 840 hPa > ${sea.toFixed(1)} % at sea level`);
+  close(P.rhFromWetBulb(32, 24, null), sea, 1e-12, 'null P');
+});
+
+test('worked example: 90 °F dry bulb / 75 °F wet bulb at sea level', () => {
+  // About 49 % RH and a 68–69 °F dew point, as on a sea-level psychrometric chart.
+  const rh = P.rhFromWetBulb(P.fToC(90), P.fToC(75), 1013.25);
+  close(rh, 49.5, 1.0, 'RH %');
+  close(P.cToF(P.dewpoint(P.fToC(90), rh)), 68.7, 0.6, 'dew point °F');
+});

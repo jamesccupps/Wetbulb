@@ -47,9 +47,13 @@
 
   /* ---------- wet bulb ---------- */
 
+  // Psychrometer coefficient A in γ = A·P (hPa/°C): the standard
+  // 0.665e-3·P[kPa] aspirated-psychrometer constant. Shared by both directions
+  // so wetBulb() and rhFromWetBulb() are exact inverses.
+  var PSY_A = 6.65e-4;
+
   // Pressure-corrected wet-bulb via bisection on the psychrometric equation:
-  //   e = es(Tw) − γ·(T − Tw),  γ = 6.65e-4 · P  (hPa/°C, the standard
-  //   0.665e-3·P[kPa] aspirated-psychrometer constant).
+  //   e = es(Tw) − γ·(T − Tw),  γ = PSY_A · P
   // Wet bulb lies between dew point and dry bulb, so the root is bracketed and
   // bisection always converges. Runs the full solve up to (but not at) 100 % RH
   // to avoid a discontinuity at saturation.
@@ -57,7 +61,7 @@
     if (!isFinite(P_hPa) || P_hPa <= 0) P_hPa = 1013.25;
     if (RH >= 100) return Tc;
     var e = esat(Tc) * RH / 100;
-    var gamma = 6.65e-4 * P_hPa;
+    var gamma = PSY_A * P_hPa;
     var lo = isFinite(Tdew) ? Tdew : Tc - 30;
     var hi = Tc;
     var f = function (Tw) { return esat(Tw) - gamma * (Tc - Tw) - e; };
@@ -67,6 +71,18 @@
       if (f(mid) < 0) lo = mid; else hi = mid;
     }
     return (lo + hi) / 2;
+  }
+
+  // The reverse: relative humidity (%) from dry bulb, wet bulb and pressure,
+  // straight from the same psychrometric equation, so it inverts wetBulb().
+  // NaN for a pair that can't happen: a wet bulb above the dry bulb, or one
+  // so far below it that the vapor pressure comes out at or below zero.
+  function rhFromWetBulb(Tc, Tw, P_hPa) {
+    if (!isFinite(P_hPa) || P_hPa <= 0) P_hPa = 1013.25;
+    if (!(Tw <= Tc)) return NaN;
+    var e = esat(Tw) - PSY_A * P_hPa * (Tc - Tw);
+    if (!(e > 0)) return NaN;
+    return 100 * e / esat(Tc);
   }
 
   // Stull (2011) empirical fit — a fast, sea-level cross-check only.
@@ -128,6 +144,7 @@
     dewpoint: dewpoint,
     rhFromDew: rhFromDew,
     wetBulb: wetBulb,
+    rhFromWetBulb: rhFromWetBulb,
     wetBulbStull: wetBulbStull,
     stullValid: stullValid,
     heatStress: heatStress,
