@@ -268,6 +268,38 @@
   </div>
   </section>
 
+  <article id="about" class="card prose">
+    <h2>What is wet-bulb temperature?</h2>
+    <p>The wet-bulb temperature is the lowest temperature air can cool something to by evaporating water into it. Wrap a thermometer bulb in a wet wick, move air across it, and the reading drops below the air temperature (the <em>dry bulb</em>) until evaporation balances the heat the air brings in. The drier the air, the bigger the drop. At 100% relative humidity nothing evaporates, and the wet bulb equals the dry bulb.</p>
+    <p>It matters wherever evaporation does the cooling: a person sweating, a cooling tower, an evaporative cooler. It always lies between the dew point and the air temperature.</p>
+
+    <h2>How this calculator works</h2>
+    <p>It solves the psychrometric equation, <code>e = e<sub>s</sub>(T<sub>w</sub>) − γ·(T − T<sub>w</sub>)</code>, for the wet-bulb temperature T<sub>w</sub>. Here <em>e</em> is the actual vapor pressure, <em>e<sub>s</sub></em> the saturation vapor pressure over water (Alduchov &amp; Eskridge, 1996), and γ = 6.65×10<sup>−4</sup>·P the psychrometer coefficient at the station pressure P. Thinner air at altitude gives a lower wet bulb for the same temperature and humidity, which is why the pressure is an input. The root is found by bisection between the dew point and the dry bulb, so it always converges. The relative-humidity calculator runs the same equation the other way.</p>
+    <p>Each result is cross-checked against Stull's (2011) formula. Stull's fit applies only for relative humidity from 5 to 99% and air temperatures from −20 to 50 °C, and it has no pressure term, so it is treated as a sanity check, not the answer. Above freezing, the result agrees with an ASHRAE thermodynamic wet-bulb solver to within 0.27 °C (0.5 °F).</p>
+    <p>The live lookup uses air temperature, dew point and surface pressure from <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>'s weather models for the location: modeled values, not a sensor at your equipment.</p>
+
+    <h2>Wet bulb vs dew point vs WBGT</h2>
+    <p><strong>Dew point</strong> is the temperature at which the air's moisture starts to condense; it depends only on how much water the air holds. <strong>Wet bulb</strong> sits between the dew point and the air temperature and depends on both. <strong>WBGT</strong> (wet-bulb globe temperature) is the heat-stress index that OSHA and ACGIH work limits are written in; it adds radiant heat from the sun and hot surfaces, measured with a black globe thermometer.</p>
+    <p>This page shows a shade WBGT estimate, 0.7·T<sub>wb</sub> + 0.3·T<sub>db</sub>. It is not valid in direct sun, where the globe term can add several degrees, and it reads low in still air. Use a WBGT meter for compliance decisions; the heat-stress badge here is a screening aid.</p>
+
+    <h2>Wet bulb for cooling towers</h2>
+    <p>A cooling tower cools water by evaporation, so the ambient wet bulb is its floor: no tower can make water colder than it. The gap a tower actually achieves, leaving-water temperature minus wet bulb, is its <em>approach</em>, typically 5–10 °F. Towers are selected for a site design wet bulb, often the ASHRAE 0.4% or 1% value; on days above it, expect warmer condenser water and less capacity. Enter your approach and design wet bulb in the cooling tower card to see today's margin, and use the next-24-hour peak to stage capacity before the afternoon. To see how a tower responds over a day, try <a href="https://jamesccupps.github.io/CoolingTowerSim/">Cooling Tower Sim</a>.</p>
+
+    <h2>Quick reference: wet bulb by temperature and humidity</h2>
+    <p class="note" id="refNote">Wet-bulb temperature at sea level. Computed by the same code as the calculators above, in the units you have selected.</p>
+    <div class="tablewrap"><table class="ref" id="refTable" aria-describedby="refNote"></table></div>
+
+    <h2>FAQ</h2>
+    <h3>Can the wet bulb be higher than the air temperature?</h3>
+    <p>No. It equals the air temperature at 100% relative humidity and is lower at any humidity below that.</p>
+    <h3>What wet-bulb temperature is dangerous?</h3>
+    <p>About 35 °C (95 °F) sustained is often cited as the limit of what the body can shed even at rest in the shade (Sherwood &amp; Huber, 2010). Lab studies of young, healthy adults put it nearer 31 °C (88 °F) in humid heat (Vecellio et al., 2022), and heat stress starts well before either. Work rules use WBGT.</p>
+    <h3>Why does the live reading differ from my sling psychrometer?</h3>
+    <p>The live value comes from a weather model for the surrounding area, not a sensor at your equipment. A rooftop, a courtyard or a mechanical room can differ by several degrees. Enter your own readings in the relative-humidity calculator above.</p>
+    <h3>Does it work offline?</h3>
+    <p>Yes. Both calculators run in your browser with no connection. Live conditions need the network.</p>
+  </article>
+
   <footer>
     Weather data &copy; <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> &middot; ZIP geocoding by <a href="https://www.zippopotam.us" target="_blank" rel="noopener">Zippopotam.us</a><br>
     Wet-bulb via iterative psychrometric equation (pressure-corrected), cross-checked against the Stull (2011) approximation.

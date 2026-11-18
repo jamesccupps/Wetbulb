@@ -15,7 +15,7 @@ var IDS = ['locInput','goBtn','gpsBtn','unitSeg','themeSeg','refreshSel','chips'
   'towerCard','twMin','approachIn','apprUnit','designWbIn','designWbUnit','twCold','towerHint','towerMargin',
   'mTempIn','mTempUnit','mRhIn','mPresIn','mPresUnit','manApproachIn','manApprUnit','manWb','manDew','manDep','manWbgt',
   'manMin','manCold','manBadge','manErr',
-  'rDbIn','rDbUnit','rWbIn','rWbUnit','rPresIn','rPresUnit','rRh','rDew','rDep','rErr'];
+  'rDbIn','rDbUnit','rWbIn','rWbUnit','rPresIn','rPresUnit','rRh','rDew','rDep','rErr','refTable'];
 var el = {};
 IDS.forEach(function (id) { el[id] = document.getElementById(id); });
 
@@ -585,6 +585,23 @@ function pressureError(prHpa) {
     presFromHpa(PRES_MAX_HPA).toFixed(presDecimals()) + ' ' + presUnit() + '.';
 }
 
+/* ---------- quick reference table ---------- */
+// Computed here by the same psychro.js as the calculators -- never typed into
+// the page -- so it can't disagree with them. Sea level; follows the unit toggle.
+var REF_RH = [20, 40, 60, 80, 100];
+function renderRefTable() {
+  var temps = unit === 'F' ? [70, 75, 80, 85, 90, 95, 100, 105, 110] : [20, 25, 30, 35, 40, 45];
+  var head = '<tr><th scope="col">Air temp / RH</th>' +
+    REF_RH.map(function (rh) { return '<th scope="col">' + rh + '%</th>'; }).join('') + '</tr>';
+  var rows = temps.map(function (t) {
+    var tC = unit === 'F' ? P.fToC(t) : t;
+    return '<tr><th scope="row">' + t + '°' + unit + '</th>' + REF_RH.map(function (rh) {
+      return '<td>' + dC(P.wetBulb(tC, rh, 1013.25, P.dewpoint(tC, rh))).toFixed(1) + '</td>';
+    }).join('') + '</tr>';
+  }).join('');
+  el.refTable.innerHTML = '<thead>' + head + '</thead><tbody>' + rows + '</tbody>';
+}
+
 /* ---------- reverse calculator: RH and dew point from the two bulbs ---------- */
 function updateReverse() {
   var dbRaw = parseFloat(el.rDbIn.value), wbRaw = parseFloat(el.rWbIn.value), prRaw = parseFloat(el.rPresIn.value);
@@ -865,6 +882,7 @@ function setUnit(newU, convertInputs) {
   el.rPresIn.step = el.mPresIn.step;
   updateManual();
   updateReverse();
+  renderRefTable();
   if (current) render();
 }
 function applyTheme(mode) {
