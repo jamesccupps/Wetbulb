@@ -759,7 +759,10 @@ function useGPS() {
     run({ lat: pos.coords.latitude, lon: pos.coords.longitude, name: 'Your location', detail: '', gps: true }, { chained: true });
   }, function (err) {
     setStatus('Location denied or unavailable (' + err.message + '). Enter a ZIP instead.', true);
-  }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
+  // A fix up to 10 min old is reused. A fresh one can take seconds on a phone,
+  // and nobody moves far enough in 10 min to change the reading: the weather
+  // grid is ~1-2 km and the share link is already rounded to ~1.1 km.
+  }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 10 * 60 * 1000 });
 }
 function refreshNow() { if (current) run(current.place); }
 function setRefresh(min) {
