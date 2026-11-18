@@ -116,7 +116,7 @@ assets/                  icon + social card
 
 ## Changelog
 
-**Unreleased** — Faster on a phone, and a page that answers the search: calculator first, the reverse calculation, and an explanation.
+**1.3.0** — Faster on a phone, and a page that answers the search: calculator first, the reverse calculation, and an explanation.
 
 *Speed*
 - **A return visit shows the last reading at once,** then replaces it. It is dimmed and labeled "saved 10:42 AM" until the fresh one arrives, and a failed update says it is still showing the saved reading. Readings older than 6 hours are not shown. Reloading the page reuses the stored place without a second lookup.
