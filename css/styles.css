@@ -158,6 +158,7 @@ h2{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;display:fl
 
 .status{font-size:13px;color:var(--muted);text-align:center;padding:10px}
 .status.err{color:var(--danger)}
+.status .secs{font-variant-numeric:tabular-nums}
 .hidden{display:none}
 /* Visually hidden but still in the accessibility tree. display:none is NOT a
    substitute: it drops the label entirely and the browser falls back to naming

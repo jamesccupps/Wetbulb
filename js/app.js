@@ -82,14 +82,38 @@ var WMO = {0:'Clear sky',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog
   95:'Thunderstorm',96:'Thunderstorm w/ hail',99:'Thunderstorm w/ hail'};
 
 /* ---------- status (XSS-safe: text only; spinner is a real node) ---------- */
+// A step in progress names itself and, from 2 s on, counts its seconds
+// ("Getting your location… 6 s"). A bare spinner hid which step was slow: a
+// Locate on Android (GPS fix, then the weather fetch) took over 12 s with
+// nothing to say where the time went. Each step's duration is recorded, and
+// with ?debug=1 the breakdown stays on screen afterwards, since a phone has no
+// DevTools to read it from.
+var DEBUG = new URLSearchParams(window.location.search).get('debug') === '1';
+var steps = [], tick = null;
+function startSteps() { steps = []; }
+function closeStep() {
+  if (tick) { clearInterval(tick); tick = null; }
+  var s = steps[steps.length - 1];
+  if (s && s.end == null) s.end = Date.now();
+}
+function timingText() {
+  if (!steps.length) return '';
+  var parts = steps.map(function (s) { return s.kind + ' ' + ((s.end - s.start) / 1000).toFixed(1) + ' s'; });
+  if (steps.length > 1) parts.push('total ' + ((steps[steps.length - 1].end - steps[0].start) / 1000).toFixed(1) + ' s');
+  return 'Timing: ' + parts.join(' · ');
+}
 function setStatus(msg, isErr) {
+  closeStep();
+  if (DEBUG && isErr && steps.length) msg += ' (' + timingText() + ')';
   var s = el.status;
   s.classList.remove('hidden');
   s.className = 'status' + (isErr ? ' err' : '');
   s.setAttribute('aria-live', isErr ? 'assertive' : 'polite');
   s.textContent = msg;
 }
-function loading(msg) {
+function loading(msg, kind) {
+  closeStep();
+  if (kind) steps.push({ kind: kind, start: Date.now(), end: null });
   var s = el.status;
   s.classList.remove('hidden');
   s.className = 'status';
@@ -98,8 +122,24 @@ function loading(msg) {
   var sp = document.createElement('span'); sp.className = 'spin';
   s.appendChild(sp);
   s.appendChild(document.createTextNode(msg));
+  var secs = document.createElement('span'); secs.className = 'secs';
+  s.appendChild(secs);
+  var t0 = Date.now();
+  tick = setInterval(function () {
+    var n = Math.floor((Date.now() - t0) / 1000);
+    if (n < 2) return;
+    // The step's message has been announced by now; silence the region so a
+    // screen reader is not read "3 s, 4 s, 5 s…". The next setStatus() or
+    // loading() turns it back on before writing.
+    s.setAttribute('aria-live', 'off');
+    secs.textContent = ' ' + n + ' s';
+  }, 1000);
 }
-function hideStatus() { el.status.classList.add('hidden'); }
+function hideStatus() {
+  closeStep();
+  if (DEBUG && steps.length) { setStatus(timingText()); return; }
+  el.status.classList.add('hidden');
+}
 function showError(e) {
   var msg = (!navigator.onLine)
     ? 'You appear to be offline. The manual calculator below still works without a connection.'
@@ -156,13 +196,16 @@ function fetchWeather(lat, lon, signal) {
   });
 }
 
-function run(place) {
+// opts.chained: called as the second step of a lookup or a Locate, so the
+// step timings keep the first step instead of starting over.
+function run(place, opts) {
   if (inFlight) inFlight.abort();
   var ctrl = new AbortController();
   inFlight = ctrl;
   timedOut = false;
   var to = setTimeout(function () { timedOut = true; ctrl.abort(); }, REQUEST_TIMEOUT_MS);
-  loading('Fetching current conditions for ' + place.name + '…');
+  if (!(opts && opts.chained)) startSteps();
+  loading('Fetching current conditions for ' + place.name + '…', 'weather');
   return fetchWeather(place.lat, place.lon, ctrl.signal).then(function (w) {
     clearTimeout(to);
     if (ctrl.signal.aborted) return;
@@ -614,7 +657,13 @@ function shareURL() {
   u.searchParams.set('u', unit);
   return u.toString();
 }
-function updateURL() { try { window.history.replaceState(null, '', shareURL()); } catch (e) {} }
+function updateURL() {
+  try {
+    var u = new URL(shareURL());
+    if (DEBUG) u.searchParams.set('debug', '1');   // survives a reload; never part of Copy link
+    window.history.replaceState(null, '', u.toString());
+  } catch (e) {}
+}
 
 function summaryText() {
   var c = current; if (!c) return '';
@@ -686,12 +735,13 @@ function resolveAndRun(q) {
   // superseded by a newer one is not reported as a timeout.
   var expired = false;
   var to = setTimeout(function () { expired = true; ctrl.abort(); }, REQUEST_TIMEOUT_MS);
-  loading('Looking up "' + q + '"…');
+  startSteps();
+  loading('Looking up "' + q + '"…', 'lookup');
   var geocode = /^\d{5}$/.test(q) ? geocodeZip(q, ctrl.signal) : geocodeCity(q, ctrl.signal);
   return geocode.then(function (place) {
     clearTimeout(to);
     place.query = q;
-    run(place);
+    run(place, { chained: true });
   }).catch(function (e) {
     clearTimeout(to);
     if (e && e.name === 'AbortError') {
@@ -703,9 +753,10 @@ function resolveAndRun(q) {
 }
 function useGPS() {
   if (!navigator.geolocation) { setStatus('Geolocation not available in this browser.', true); return; }
-  loading('Getting your location…');
+  startSteps();
+  loading('Getting your location…', 'location');
   navigator.geolocation.getCurrentPosition(function (pos) {
-    run({ lat: pos.coords.latitude, lon: pos.coords.longitude, name: 'Your location', detail: '', gps: true });
+    run({ lat: pos.coords.latitude, lon: pos.coords.longitude, name: 'Your location', detail: '', gps: true }, { chained: true });
   }, function (err) {
     setStatus('Location denied or unavailable (' + err.message + '). Enter a ZIP instead.', true);
   }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
