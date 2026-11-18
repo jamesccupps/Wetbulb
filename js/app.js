@@ -23,8 +23,6 @@ var unit = 'F';
 var current = null;      // last payload + computed values
 var refreshTimer = null;
 var inFlight = null;     // AbortController for the active request
-var timedOut = false;
-var REQUEST_TIMEOUT_MS = 12000;   // each geocoder lookup and each weather request
 
 /* ---------- helpers ---------- */
 function finiteNum(v) { return typeof v === 'number' && isFinite(v); }
@@ -151,33 +149,42 @@ function showError(e) {
 }
 function clock(ms) { return new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
 
-/* ---------- geocoding ---------- */
+/* ---------- requests ---------- */
+// Every API call goes through Live.getJson: a second attempt alongside a
+// stalled one after 4 s, an immediate retry after a network error or 5xx, and
+// one deadline for a whole lookup + weather chain. The wrapper looks fetch up
+// at call time.
+function netFetch(u, o) { return fetch(u, o); }
+function getJson(u, signal, deadline, what) {
+  return L.getJson(netFetch, u, { signal: signal, deadline: deadline }).catch(function (e) {
+    // A network failure surfaces as a bare TypeError ("Failed to fetch").
+    if (e instanceof TypeError) throw new Error('Couldn’t reach ' + what + '. Check the connection and try again.');
+    throw e;
+  });
+}
 // Status first, then the body. Unchecked, a 429 with Open-Meteo's JSON error
 // body read as 'No match for "Portland, ME"' (a real city made to look
 // nonexistent), and an HTML error page surfaced as a raw JSON parse error.
-// An abort while the body is read stays an AbortError, so a superseded or
-// timed-out lookup is not reported as a bad reply.
-function readReply(r, what) {
-  if (!r.ok) throw new Error(what + ' failed (HTTP ' + r.status + '). Try again in a minute.');
-  return r.json().catch(function (e) {
-    if (e && e.name === 'AbortError') throw e;
-    throw new Error(what + ' sent an unreadable reply. Try again in a minute.');
-  });
+function checkReply(res, what) {
+  if (!res.ok) throw new Error(what + ' failed (HTTP ' + res.status + '). Try again in a minute.');
+  if (res.json === undefined) throw new Error(what + ' sent an unreadable reply. Try again in a minute.');
+  return res.json;
 }
-function geocodeZip(zip, signal) {
-  return fetch(API.zip + '/us/' + zip, { signal: signal }).then(function (r) {
-    if (r.status === 404) throw new Error('ZIP ' + zip + ' not found.');
-    return readReply(r, 'ZIP lookup');
-  }).then(function (j) {
-    var place = G.placeFromZip(j, zip);
+
+/* ---------- geocoding ---------- */
+function geocodeZip(zip, signal, deadline) {
+  return getJson(API.zip + '/us/' + zip, signal, deadline, 'the ZIP lookup').then(function (res) {
+    if (res.status === 404) throw new Error('ZIP ' + zip + ' not found.');
+    var place = G.placeFromZip(checkReply(res, 'ZIP lookup'), zip);
     if (!place) throw new Error('ZIP ' + zip + ' came back without a usable location.');
     return place;
   });
 }
-function geocodeCity(q, signal) {
+function geocodeCity(q, signal, deadline) {
   var pq = G.parseQuery(q);
-  return fetch(API.city + '/v1/search?name=' + encodeURIComponent(pq.name) + '&count=10&language=en&format=json', { signal: signal })
-    .then(function (r) { return readReply(r, 'City lookup'); })
+  return getJson(API.city + '/v1/search?name=' + encodeURIComponent(pq.name) + '&count=10&language=en&format=json',
+      signal, deadline, 'the city lookup')
+    .then(function (res) { return checkReply(res, 'City lookup'); })
     .then(function (j) {
       if (!j || !Array.isArray(j.results) || !j.results.length) throw new Error('No match for "' + q + '".');
       var p = G.pickResult(j.results, pq.qualifier);
@@ -212,40 +219,37 @@ function warm(origins) {
 }
 
 /* ---------- weather ---------- */
-function fetchWeather(lat, lon, signal) {
+function fetchWeather(lat, lon, signal, deadline) {
   var u = API.weather + '/v1/forecast?latitude=' + lat + '&longitude=' + lon +
     '&current=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,surface_pressure,wind_speed_10m,wind_direction_10m,weather_code' +
     '&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,surface_pressure' +
     '&past_days=1&forecast_days=2&wind_speed_unit=mph&timezone=auto';
-  return fetch(u, { signal: signal }).then(function (r) {
-    if (!r.ok) throw new Error('Weather service error (' + r.status + ').');
-    return r.json();
+  return getJson(u, signal, deadline, 'the weather service').then(function (res) {
+    if (!res.ok) throw new Error('Weather service error (' + res.status + ').');
+    if (res.json === undefined) throw new Error('The weather service sent an unreadable reply. Try again in a minute.');
+    return res.json;
   });
 }
 
 // opts.chained: called as the second step of a lookup or a Locate, so the
 // step timings keep the first step instead of starting over.
+// opts.deadline: what is left of the lookup's budget; otherwise a fresh one.
 function run(place, opts) {
   if (inFlight) inFlight.abort();
   var ctrl = new AbortController();
   inFlight = ctrl;
-  timedOut = false;
-  var to = setTimeout(function () { timedOut = true; ctrl.abort(); }, REQUEST_TIMEOUT_MS);
+  var deadline = (opts && opts.deadline) || Date.now() + L.BUDGET_MS;
   if (!(opts && opts.chained)) startSteps();
   var showingSaved = current && current.savedAt && placeKey(current.place) === placeKey(place);
   loading(showingSaved
     ? 'Updating ' + place.name + ' (showing the reading saved at ' + clock(current.savedAt) + ')…'
     : 'Fetching current conditions for ' + place.name + '…', 'weather');
-  return fetchWeather(place.lat, place.lon, ctrl.signal).then(function (w) {
-    clearTimeout(to);
+  return fetchWeather(place.lat, place.lon, ctrl.signal, deadline).then(function (w) {
     if (ctrl.signal.aborted) return;
     computeAndRender(place, w);
   }).catch(function (e) {
-    clearTimeout(to);
-    if (e && e.name === 'AbortError') {
-      if (timedOut) showError(new Error('Timed out contacting the weather service. Try again.'));
-      return; // otherwise superseded by a newer request
-    }
+    if (e && e.name === 'AbortError') return;   // superseded by a newer request
+    if (e && e.name === 'TimeoutError') e = new Error('Timed out contacting the weather service. Try again.');
     showError(e);
   });
 }
@@ -767,25 +771,19 @@ function resolveAndRun(q) {
   if (inFlight) inFlight.abort();
   var ctrl = new AbortController();
   inFlight = ctrl;
-  // Same budget as the weather request. Without it, a geocoder that accepts
-  // the connection and never answers left "Looking up…" spinning until the
-  // browser gave up, which can take minutes. The flag is per call, so a lookup
-  // superseded by a newer one is not reported as a timeout.
-  var expired = false;
-  var to = setTimeout(function () { expired = true; ctrl.abort(); }, REQUEST_TIMEOUT_MS);
+  // One budget for the lookup and the weather fetch together; they used to get
+  // 12 s each, so a stall could hold the page for ~24 s before any error.
+  var deadline = Date.now() + L.BUDGET_MS;
   startSteps();
   loading('Looking up "' + q + '"…', 'lookup');
-  var geocode = /^\d{5}$/.test(q) ? geocodeZip(q, ctrl.signal) : geocodeCity(q, ctrl.signal);
+  var geocode = /^\d{5}$/.test(q) ? geocodeZip(q, ctrl.signal, deadline) : geocodeCity(q, ctrl.signal, deadline);
   return geocode.then(function (place) {
-    clearTimeout(to);
+    if (ctrl.signal.aborted) return;   // superseded after the reply arrived
     place.query = q;
-    run(place, { chained: true });
+    run(place, { chained: true, deadline: deadline });
   }).catch(function (e) {
-    clearTimeout(to);
-    if (e && e.name === 'AbortError') {
-      if (expired) showError(new Error('Timed out looking up "' + q + '". Try again.'));
-      return;
-    }
+    if (e && e.name === 'AbortError') return;
+    if (e && e.name === 'TimeoutError') e = new Error('Timed out looking up "' + q + '". Try again.');
     showError(e);
   });
 }
