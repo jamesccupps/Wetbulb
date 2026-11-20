@@ -23,7 +23,8 @@ IDS.forEach(function (id) { el[id] = document.getElementById(id); });
 var unit = 'F';
 var current = null;      // last payload + computed values
 var refreshTimer = null;
-var inFlight = null;     // AbortController for the active request
+var inFlight = null;     // AbortController for the active request; null once it settles
+var locating = false;    // waiting on a GPS fix (no request in flight yet)
 
 /* ---------- helpers ---------- */
 function finiteNum(v) { return typeof v === 'number' && isFinite(v); }
@@ -258,8 +259,10 @@ function run(place, opts) {
     : 'Fetching current conditions for ' + place.name + '…', 'weather');
   return fetchWeather(place.lat, place.lon, ctrl.signal, deadline).then(function (w) {
     if (ctrl.signal.aborted) return;
+    if (inFlight === ctrl) inFlight = null;
     computeAndRender(place, w);
   }).catch(function (e) {
+    if (inFlight === ctrl) inFlight = null;
     if (e && e.name === 'AbortError') return;   // superseded by a newer request
     if (e && e.name === 'TimeoutError') e = new Error('Timed out contacting the weather service. Try again.');
     showError(e, isOtherPlace(place));
@@ -832,6 +835,7 @@ function resolveAndRun(q) {
     place.query = q;
     run(place, { chained: true, deadline: deadline });
   }).catch(function (e) {
+    if (inFlight === ctrl) inFlight = null;
     if (e && e.name === 'AbortError') return;
     if (e && e.name === 'TimeoutError') e = new Error('Timed out looking up "' + q + '". Try again.');
     // The lookup never produced a place, so any reading on screen is another
@@ -844,16 +848,22 @@ function useGPS() {
   startSteps();
   loading('Getting your location…', 'location');
   warm([API.weather]);   // the weather fetch follows the fix
+  locating = true;
   navigator.geolocation.getCurrentPosition(function (pos) {
+    locating = false;
     run({ lat: pos.coords.latitude, lon: pos.coords.longitude, name: 'Your location', detail: '', gps: true }, { chained: true });
   }, function (err) {
+    locating = false;
     setStatus('Location denied or unavailable (' + err.message + '). Enter a ZIP instead.', true);
   // A fix up to 10 min old is reused. A fresh one can take seconds on a phone,
   // and nobody moves far enough in 10 min to change the reading: the weather
   // grid is ~1-2 km and the share link is already rounded to ~1.1 km.
   }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 10 * 60 * 1000 });
 }
-function refreshNow() { if (current) run(current.place); }
+// An auto-refresh tick waits its turn: run() aborts whatever is in flight, so a
+// tick landing mid-search used to cancel the search (or, mid-Locate, fetch the
+// old place under "Getting your location..."). The next tick catches up.
+function refreshNow() { if (current && !inFlight && !locating) run(current.place); }
 function setRefresh(min) {
   if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
   if (min > 0) refreshTimer = setInterval(refreshNow, min * 60 * 1000);
