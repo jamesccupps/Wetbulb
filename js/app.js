@@ -142,7 +142,7 @@ function hideStatus() {
 }
 function showError(e) {
   var msg = (!navigator.onLine)
-    ? 'You appear to be offline. The manual calculator below still works without a connection.'
+    ? 'You appear to be offline. The calculators on this page still work without a connection.'
     : (e && e.message ? e.message : 'Something went wrong loading the data.');
   // Never let a failed update leave a saved reading looking current.
   if (current && current.savedAt) msg += ' Showing the reading saved at ' + clock(current.savedAt) + '.';
@@ -305,7 +305,7 @@ function computeAndRender(place, w, opts) {
   var c = w.current;
   var Tc = c.temperature_2m, RH = c.relative_humidity_2m, Tdew = c.dew_point_2m, Pv = c.surface_pressure;
   if (!finiteNum(Tc) || !finiteNum(RH)) {
-    showError(new Error('Weather service returned incomplete current conditions. The manual calculator below still works.'));
+    showError(new Error('Weather service returned incomplete current conditions. The calculators on this page still work.'));
     return;
   }
   RH = Math.max(0, Math.min(100, RH));   // models can report slightly >100% at saturation
@@ -969,7 +969,7 @@ function boot() {
   if (place || loc) { var live = document.getElementById('live'); live.parentNode.insertBefore(live, document.getElementById('calc')); }
   if (place) { showSavedThenRun(place); return; }
   if (!navigator.onLine) {
-    setStatus('You appear to be offline. The manual calculator below works without a connection.');
+    setStatus('You appear to be offline. The calculators on this page work without a connection.');
     return;
   }
   el.locInput.value = loc || '04101';
@@ -985,7 +985,7 @@ function showSavedThenRun(place) {
   if (saved) computeAndRender(place, saved.w, { savedAt: saved.at });
   if (!navigator.onLine) {
     setStatus('You appear to be offline. ' + (saved ? 'Showing the reading saved at ' + clock(saved.at) + '. ' : '') +
-      'The manual calculator below works without a connection.');
+      'The calculators on this page work without a connection.');
     return;
   }
   run(place);
