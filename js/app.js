@@ -972,8 +972,10 @@ function boot() {
     setStatus('You appear to be offline. The calculators on this page work without a connection.');
     return;
   }
-  el.locInput.value = loc || '04101';
-  resolveAndRun(loc || '04101');
+  if (loc) { el.locInput.value = loc; resolveAndRun(loc); }
+  // Otherwise a first visit stays on the empty prompt. It used to look up
+  // 04101 as a demo, so someone in Texas landed on Portland, Maine's weather,
+  // and every crawler visit cost two API calls.
 }
 function sameSpot(a, b) { return Math.abs(a.lat - b.lat) < 0.006 && Math.abs(a.lon - b.lon) < 0.006; }
 // Draw the saved reading for this place at once (marked as saved), then fetch
