@@ -125,6 +125,22 @@ assets/                  icon + social card
 
 ## Changelog
 
+**1.4.0** — Fixes from a pre-release check, a first visit that waits to be asked, and a page that can no longer run with an older deploy's scripts.
+
+*Fixes*
+- **Contrast in the light theme.** The saved reading shown while a fresh one loads was dimmed with transparency and measured 2.11:1 (large text needs 3:1); it now uses the muted text color (5.99:1). Links used the accent blue, 3.64–4.1:1 against the 4.5:1 body text needs; they now use a darker blue (at least 5.27:1). Dark theme was already fine.
+- **A failed search for a new place no longer leaves the old reading looking like the answer.** The reading still on screen is grayed out and the error names it: "No match for … Still showing Portland, ME." A failed refresh of the *same* place is not marked.
+- **Auto-refresh no longer cancels a search or Locate in progress;** a tick that finds one running waits for the next.
+- Offline and error messages no longer say the calculator is "below" (since 1.3.0 a first visit shows it above).
+
+*Behavior*
+- **A first visit opens on the empty prompt.** It no longer looks up Portland, ME as a demo, so someone elsewhere doesn't land on Maine's weather and nothing is fetched until you ask. The calculator still shows its worked example.
+- **The page reloads when the connection comes back** (including a remembered place an offline start couldn't load), **and when you return to the tab or the installed app** if auto-refresh is on and the reading is older than its interval.
+
+*Build*
+- **Content stamps.** Scripts and the stylesheet load as `file?v=<hash of the file>`, and the offline cache is named after the whole shell, both written by `node tools/stamp.js` and checked by a test. The first load after a deploy can no longer run the previous deploy's scripts, and the hand-bumped cache version is gone.
+- CI runs on Node 22 and 24 (Node 20 is end-of-life); `engines` → `>=22`.
+
 **1.3.0** — Faster on a phone, and a page that answers the search: calculator first, the reverse calculation, and an explanation.
 
 *Speed*
