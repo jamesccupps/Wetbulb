@@ -8,6 +8,7 @@
   --text:#e6edf3; --muted:#8b9aa8; --accent:#38bdf8; --accent-2:#22d3ee;
   --on-accent:#06222e; --warn:#fbbf24; --danger:#f87171; --good:#4ade80;
   --grid-line:#243240; --shadow:0 1px 3px rgba(0,0,0,.4); --radius:12px;
+  --link:#38bdf8;
   /* Heat-stress ramp. Measured against the .badge background in this theme;
      every step is >=4.7:1 (WCAG AA for the badge's 12px text). Keep them that
      way — this readout is the safety-relevant one. */
@@ -26,6 +27,7 @@
     --text:#12202c; --muted:#556575; --accent:#0284c7; --accent-2:#0369a1;
     --on-accent:#ffffff; --warn:#b45309; --danger:#dc2626; --good:#15803d;
     --grid-line:#e2e8f0; --shadow:0 1px 3px rgba(15,23,42,.12);
+    --link:#0369a1;   /* accent #0284c7 was 4.1:1 on white, 3.64:1 on --bg: under 4.5:1 for body text */
     --stress-low:#166534; --stress-caution:#3f6212; --stress-high:#854d0e;
     --stress-extreme:#9a3412; --stress-limit:#b91c1c;
     color-scheme: light;
@@ -36,6 +38,7 @@
   --text:#12202c; --muted:#556575; --accent:#0284c7; --accent-2:#0369a1;
   --on-accent:#ffffff; --warn:#b45309; --danger:#dc2626; --good:#15803d;
   --grid-line:#e2e8f0; --shadow:0 1px 3px rgba(15,23,42,.12);
+  --link:#0369a1;
   --stress-low:#166534; --stress-caution:#3f6212; --stress-high:#854d0e;
   --stress-extreme:#9a3412; --stress-limit:#b91c1c;
 }
@@ -178,7 +181,7 @@ h2{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;display:fl
 @keyframes spin{to{transform:rotate(360deg)}}
 
 footer{margin-top:18px;font-size:11px;color:var(--muted);text-align:center;line-height:1.7}
-a{color:var(--accent);text-decoration:none}
+a{color:var(--link);text-decoration:none}
 a:hover{text-decoration:underline}
 details{margin-top:10px}
 summary{cursor:pointer;font-size:12px;color:var(--muted)}
