@@ -23,7 +23,7 @@ test('every SHELL entry exists in the repo', () => {
   const shell = shellList();
   assert.ok(shell.length >= 5, `parsed only ${shell.length} SHELL entries`);
   for (const u of shell) {
-    const rel = u === './' ? 'index.html' : u.replace(/^\.\//, '');
+    const rel = u === './' ? 'index.html' : u.replace(/^\.\//, '').replace(/\?v=[0-9a-f]+$/, '');
     assert.ok(fs.existsSync(path.join(ROOT, rel)), `${u} is in SHELL but ${rel} does not exist`);
   }
 });
@@ -38,4 +38,23 @@ test('every local script, stylesheet, manifest and icon the page uses is in SHEL
   ].filter(u => !/^(?:[a-z]+:|\/\/)/i.test(u));   // skip https:, data: and protocol-relative
   assert.ok(refs.length >= 6, `found only ${refs.length} local references`);
   for (const r of refs) assert.ok(shell.has(r), `${r} is used by the page but missing from SHELL`);
+});
+
+test('content stamps are current (run: node tools/stamp.js)', () => {
+  // A stale stamp means a changed script is still requested under its old URL,
+  // so the page and its scripts can come from different deploys again.
+  const stamp = require('../tools/stamp.js');
+  assert.deepEqual(stamp.stale(), [], 'stale stamps -- run: node tools/stamp.js');
+});
+
+test('every stamped asset is loaded by the page and cached with the same stamp', () => {
+  const stamp = require('../tools/stamp.js');
+  const html = read('index.html'), shell = shellList().join(' ');
+  for (const f of stamp.STAMPED) {
+    const esc = s => s.replace(/[.?]/g, '\\$&');
+    const m = html.match(new RegExp('(?:src|href)="' + esc(f + '?v=') + '([0-9a-f]{8})"'));
+    assert.ok(m, `${f} is not loaded with a ?v= stamp in index.html`);
+    assert.ok(shell.includes('./' + f + '?v=' + m[1]), `${f}?v=${m[1]} is not what sw.js caches`);
+  }
+  assert.match(read('sw.js'), /var VERSION = 'wetbulb-[0-9a-f]{8}';/);
 });

@@ -3,14 +3,18 @@
    cross-origin and always go straight to the network — never cached, so a
    reading is never silently stale. HTML is network-first, and same-origin
    assets are stale-while-revalidate: served instantly from cache but refreshed
-   in the background, so a redeploy self-heals on the next load without needing
-   a build step. Bumping VERSION forces an immediate full refresh. */
+   in the background.
+   The scripts and stylesheet are loaded as "file?v=<content stamp>", and
+   VERSION is derived from the whole shell; both are written by
+   `node tools/stamp.js` (test/sw.test.js fails while they are stale). So a
+   changed file is a new URL -- the network-first page can only ever pair with
+   the scripts it was written for -- and the cache rolls over by itself. */
 'use strict';
 
-var VERSION = 'wetbulb-v7';
+var VERSION = 'wetbulb-c93aeccb';
 var SHELL = [
-  './', './index.html', './css/styles.css',
-  './js/psychro.js', './js/geo.js', './js/live.js', './js/app.js',
+  './', './index.html', './css/styles.css?v=7eef0a7c',
+  './js/psychro.js?v=0f782913', './js/geo.js?v=ce3b26cc', './js/live.js?v=5358f6d0', './js/app.js?v=2ff841ca',
   './manifest.webmanifest', './assets/icon.svg', './assets/icon-maskable.svg'
 ];
 

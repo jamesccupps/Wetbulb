@@ -84,6 +84,14 @@ The psychrometric core (`js/psychro.js`), the geocoder result selector (`js/geo.
 node --test          # or: npm test
 ```
 
+After editing any script or `css/styles.css`, refresh the content stamps before committing:
+
+```bash
+node tools/stamp.js
+```
+
+The page loads each script and the stylesheet as `file?v=<stamp>` (the first 8 hex digits of its SHA-256), and the service worker caches exactly those URLs under a cache name derived from the whole shell. A changed file is therefore a new URL, so the page can never run with a previous deploy's scripts, and the offline cache rolls over by itself. A test fails while any stamp is stale, so CI catches a forgotten run.
+
 CI runs the suite on Node 20/22/24 via GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 ## Deploy to GitHub Pages
@@ -109,6 +117,7 @@ test/live.test.js        node:test suite for the fetch hedge and saved reading
 test/sw.test.js          SHELL list matches the repo and the page (offline install)
 test/fixtures/           real geocoder responses used by the tests
 sw.js                    service worker (offline shell; APIs stay network-only)
+tools/stamp.js           content stamps for the shell assets (run after editing js/ or css/)
 manifest.webmanifest     PWA manifest
 assets/                  icon + social card
 .github/workflows/ci.yml CI
