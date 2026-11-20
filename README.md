@@ -92,7 +92,7 @@ node tools/stamp.js
 
 The page loads each script and the stylesheet as `file?v=<stamp>` (the first 8 hex digits of its SHA-256), and the service worker caches exactly those URLs under a cache name derived from the whole shell. A changed file is therefore a new URL, so the page can never run with a previous deploy's scripts, and the offline cache rolls over by itself. A test fails while any stamp is stale, so CI catches a forgotten run.
 
-CI runs the suite on Node 20/22/24 via GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+CI runs the suite on Node 22/24 via GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 ## Deploy to GitHub Pages
 
