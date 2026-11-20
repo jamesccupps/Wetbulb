@@ -140,14 +140,25 @@ function hideStatus() {
   if (DEBUG && steps.length) { setStatus(timingText()); return; }
   el.status.classList.add('hidden');
 }
-function showError(e) {
+// otherPlace: the failed request was for a different place than the reading
+// on screen. That reading is then grayed out and named, so it isn't read as
+// the answer to the search that just failed -- before, it simply stayed up
+// under its own name with an error line above it.
+function showError(e, otherPlace) {
   var msg = (!navigator.onLine)
     ? 'You appear to be offline. The calculators on this page still work without a connection.'
     : (e && e.message ? e.message : 'Something went wrong loading the data.');
-  // Never let a failed update leave a saved reading looking current.
-  if (current && current.savedAt) msg += ' Showing the reading saved at ' + clock(current.savedAt) + '.';
+  if (current && otherPlace) {
+    current.other = true;
+    msg += ' Still showing ' + current.place.name + (current.savedAt ? ', saved at ' + clock(current.savedAt) : '') + '.';
+    render();
+  } else if (current && current.savedAt) {
+    // Never let a failed update leave a saved reading looking current.
+    msg += ' Showing the reading saved at ' + clock(current.savedAt) + '.';
+  }
   setStatus(msg, true);
 }
+function isOtherPlace(place) { return !!current && placeKey(current.place) !== placeKey(place); }
 function clock(ms) { return new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
 
 /* ---------- requests ---------- */
@@ -251,7 +262,7 @@ function run(place, opts) {
   }).catch(function (e) {
     if (e && e.name === 'AbortError') return;   // superseded by a newer request
     if (e && e.name === 'TimeoutError') e = new Error('Timed out contacting the weather service. Try again.');
-    showError(e);
+    showError(e, isOtherPlace(place));
   });
 }
 
@@ -305,7 +316,7 @@ function computeAndRender(place, w, opts) {
   var c = w.current;
   var Tc = c.temperature_2m, RH = c.relative_humidity_2m, Tdew = c.dew_point_2m, Pv = c.surface_pressure;
   if (!finiteNum(Tc) || !finiteNum(RH)) {
-    showError(new Error('Weather service returned incomplete current conditions. The calculators on this page still work.'));
+    showError(new Error('Weather service returned incomplete current conditions. The calculators on this page still work.'), isOtherPlace(place));
     return;
   }
   RH = Math.max(0, Math.min(100, RH));   // models can report slightly >100% at saturation
@@ -342,6 +353,7 @@ function render() {
   var c = current, w = c.w, cur = w.current;
   el.result.classList.remove('hidden');
   el.result.classList.toggle('saved', !!c.savedAt);
+  el.result.classList.toggle('other', !!c.other);   // a failed search for another place (showError)
   el.towerCard.classList.remove('hidden');
   el.chartCard.classList.remove('hidden');
 
@@ -822,7 +834,9 @@ function resolveAndRun(q) {
   }).catch(function (e) {
     if (e && e.name === 'AbortError') return;
     if (e && e.name === 'TimeoutError') e = new Error('Timed out looking up "' + q + '". Try again.');
-    showError(e);
+    // The lookup never produced a place, so any reading on screen is another
+    // place's -- unless it came from this same search text.
+    showError(e, !!current && current.place.query !== q);
   });
 }
 function useGPS() {

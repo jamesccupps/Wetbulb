@@ -120,7 +120,8 @@ select{background:var(--panel-2);border:1px solid var(--border);color:var(--text
    is printed beside the observation time, so it is not taken for a live value.
    The muted text color, not opacity: opacity .55 measured 2.11:1 against the
    light theme's panel, under the 3:1 that 64px text needs. */
-#result.saved .hero .big{color:var(--muted)}
+#result.saved .hero .big,
+#result.other .hero .big{color:var(--muted)}   /* also: a search for another place failed */
 .hero .alt{font-size:16px;color:var(--muted)}
 
 .scale{margin:18px 0 6px}
