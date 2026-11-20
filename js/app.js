@@ -25,6 +25,8 @@ var current = null;      // last payload + computed values
 var refreshTimer = null;
 var inFlight = null;     // AbortController for the active request; null once it settles
 var locating = false;    // waiting on a GPS fix (no request in flight yet)
+var fetchedAt = 0;       // when the reading on screen was fetched (a saved one: when it was saved)
+var pendingPlace = null; // a place an offline start couldn't load yet
 
 /* ---------- helpers ---------- */
 function finiteNum(v) { return typeof v === 'number' && isFinite(v); }
@@ -335,6 +337,7 @@ function computeAndRender(place, w, opts) {
     series: buildSeries(w), trend: pressureTrend(w), savedAt: savedAt || null
   };
   current.fcPeak = forecastPeak(current.series);
+  fetchedAt = savedAt || Date.now();
 
   // populate the per-site design wet-bulb input for this location
   var dw = loadDesignWb(place);
@@ -346,6 +349,7 @@ function computeAndRender(place, w, opts) {
     saveLast(place);
     pushRecent(place);
     jset('wb_reading', L.packReading(placeKey(place), w, Date.now()));
+    pendingPlace = null;
   }
   renderChips();
   updateURL();
@@ -931,6 +935,8 @@ function wireEvents() {
   el.goBtn.onclick = submitLoc;
   el.locInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitLoc(); });
   el.locInput.addEventListener('focus', function () { warm([API.zip, API.city, API.weather]); });
+  window.addEventListener('online', onBackOnline);
+  document.addEventListener('visibilitychange', onVisible);
   el.gpsBtn.onclick = useGPS;
   el.approachIn.addEventListener('input', updateTower);
   el.designWbIn.addEventListener('input', function () {
@@ -1010,11 +1016,30 @@ function showSavedThenRun(place) {
   var saved = L.usableReading(jget('wb_reading', null), placeKey(place), Date.now());
   if (saved) computeAndRender(place, saved.w, { savedAt: saved.at });
   if (!navigator.onLine) {
+    pendingPlace = place;   // loaded by onBackOnline()
     setStatus('You appear to be offline. ' + (saved ? 'Showing the reading saved at ' + clock(saved.at) + '. ' : '') +
       'The calculators on this page work without a connection.');
     return;
   }
   run(place);
+}
+
+// Nothing used to react when the connection came back: a page opened offline
+// stayed on its offline notice until a manual search. Now the place on screen
+// (or one an offline start remembered) loads; with no place, the prompt returns.
+function onBackOnline() {
+  var p = current ? current.place : pendingPlace;
+  if (p) { if (!inFlight && !locating) run(p); }
+  else if (!inFlight && !locating) setStatus('Enter a location to begin, or tap Locate.');
+}
+// Back on the tab, or the installed app brought to the front: if auto-refresh
+// is on and the reading is older than its interval, refresh now instead of
+// leaving it stale until the next tick (a phone may not run a backgrounded
+// page's timers at all). With auto-refresh off, leave it to the user.
+function onVisible() {
+  if (document.visibilityState !== 'visible' || !current) return;
+  var min = parseInt(el.refreshSel.value, 10);
+  if (min > 0 && Date.now() - fetchedAt > min * 60 * 1000) refreshNow();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
